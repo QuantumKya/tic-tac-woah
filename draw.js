@@ -1,4 +1,8 @@
-loadShaderFiles();
+import { initBuffers, initColorBuffer } from "./init-buffers.js";
+import { drawScene } from "./draw-scene.js";
+import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
+
+shaderSet.default = await loadShaderFiles();
 main();
 
 
@@ -20,34 +24,19 @@ function main() {
 
     const vsSource = shaderSet.default.vsSource;
     const fsSource = shaderSet.default.fsSource;
-    const shader = initShader(gl, vsSource, fsSource);
-}
-
-const shaderSet = {
-    default: {
-        vsSource: '',
-        fsSource: '',
-    },
-};
-async function loadShaderFiles() {
-    shaderSet.default.vsSource = await (await fetch('vertex.glsl')).text();
-    shaderSet.default.fsSource = await (await fetch('fragment.glsl')).text();
-}
-
-function initShader(gl, vertex, fragment) {
-    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vertex);
-    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fragment);
-
-    const shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertexShader);
-    gl.attachShader(shaderProgram, fragmentShader);
-    gl.linkProgram(shaderProgram);
-
-    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-        alert('Unable to initialize shader program :ε');
-        console.log(gl.getProgramInfoLog(shaderProgram));
-        return null;
+    const shaderProgram = initShader(gl, vsSource, fsSource);
+    const programInfo = {
+        program: shaderProgram,
+        attribLocations: {
+            vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+            vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
+        },
+        uniformLocations: {
+            projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+            modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+        },
     }
 
-    return shaderProgram;
+    const buffers = initBuffers(gl);
+    drawScene(gl, programInfo, buffers);
 }
