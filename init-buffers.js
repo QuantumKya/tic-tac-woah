@@ -1,3 +1,5 @@
+import { Color, COLORS, getColor, getColorBuffer } from './color.js';
+
 function initBuffers(gl) {
     const positionBuffer = initPositionBuffer(gl);
     const colorBuffer = initColorBuffer(gl);
@@ -25,24 +27,15 @@ function initPositionBuffer(gl) {
 // ============================= COLORS ============================= //
 
 function initColorBuffer(gl) {
-    const colors = [
-        1.0,
-        1.0,
-        1.0,
-        1.0, // white
-        1.0,
-        0.0,
-        0.0,
-        1.0, // red
-        0.0,
-        1.0,
-        0.0,
-        1.0, // green
-        0.0,
-        0.0,
-        1.0,
-        1.0, // blue
-    ];
+    const period = 1000 / 0.25; // 1000 / frequency
+    const t = Math.pow(Math.sin((Date.now() % period) / period * 2 * Math.PI), 2);
+    const larpColor = Color.lerpColors(COLORS.RED, COLORS.BLUE, t);
+    const colors = getColorBuffer(
+        larpColor,
+        larpColor,
+        larpColor,
+        larpColor,
+    );
 
     const clrBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, clrBuffer);
@@ -51,4 +44,4 @@ function initColorBuffer(gl) {
     return clrBuffer;
 }
 
-export { initBuffers, initColorBuffer };
+export { initBuffers };

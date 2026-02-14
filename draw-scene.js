@@ -103,4 +103,4 @@ function setColorAttribute(gl, buffers, programInfo) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
 }
 
-export { drawScene, setColorAttribute };
+export { drawScene };
