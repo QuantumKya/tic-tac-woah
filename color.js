@@ -1,3 +1,5 @@
+import { avgArray, wAvgArray } from "./math_stuff.js";
+
 class Color {
     constructor(r, g, b, a) {
         this.rgba = [r, g, b, a];
@@ -123,27 +125,6 @@ function getColor(r, g, b, a = 255) {
     );
 }
 
-
-const avgArray = (arr) => {
-    if (arr.length === 0) return 0;
-    const sum = arr.reduce((a, b) => a + b, 0);
-    return sum / arr.length;
-}
-const wAvgArray = (arr, weights) => {
-    if (!(arr.length === weights.length)) return 0;
-    if (arr.length === 0 || weights === 0) return 0;
-
-    let arrSum = 0;
-    let weightSum = 0;
-
-    for (let i = 0; i < arr.length; i++) {
-        arrSum += arr[i] * weights[i];
-        weightSum += weights[i];
-    }
-
-    if (weightSum === 0) return 0;
-    return arrSum / weightSum;
-}
 
 /**
  * Concatenate a set of colors into a color buffer array.
