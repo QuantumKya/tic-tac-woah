@@ -91,6 +91,14 @@ class DrawnShape {
     setColor(clr) {
         this.color = clr;
     }
+
+    getVertexBuffer() {
+        return this.vertices.flatMap(v => [v[0], v[1], v[2]]);
+    }
+
+    getColorBuffer() {
+        return getColorBuffer(...Array(this.vertices.length).fill(this.color));
+    }
 }
 
 /**
@@ -184,6 +192,10 @@ class Triangle extends DrawnShape {
         const bary = this.getBarycentric(intersect);
         return (bary.α > 0 && bary.β > 0 && bary.γ > 0);
     }
+
+    getIndexBuffer() {
+        return [0, 1, 2];
+    }
 }
 
 class Polygon extends DrawnShape {
@@ -233,16 +245,8 @@ class Polygon extends DrawnShape {
         return this.constituentTriangleIndices.map(arr => Triangle.fromPoints(...arr));
     }
 
-    getVertexBuffer() {
-        return this.vertices.flatMap(v => [v[0], v[1], v[2]]);
-    }
-
     getIndexBuffer() {
         return this.constituentTriangleIndices.flat();
-    }
-
-    getColorBuffer() {
-        return getColorBuffer(...Array((this.vertices.length-2)*3).fill(this.color));
     }
 }
 
@@ -285,8 +289,12 @@ class Quadrilateral extends Polygon {
         vec3.add(ps2, p, s2);
         vec3.add(pss, ps1, s2);
 
-        const para = new Quadrilateral(p, ps1, ps2, pss);
+        const para = new Quadrilateral(p, ps1, pss, ps2);
         return para;
+    }
+
+    getIndexBuffer() {
+        return [0, 1, 2, 0, 2, 3];
     }
 }
 
