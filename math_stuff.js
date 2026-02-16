@@ -43,8 +43,18 @@ const avgPoints = (...pts) => {
 const X = vec3.fromValues(1,0,0);
 const Y = vec3.fromValues(0,1,0);
 const Z = vec3.fromValues(0,0,1);
+const MX = vec3.fromValues(-1,0,0);
+const MY = vec3.fromValues(0,-1,0);
+const MZ = vec3.fromValues(0,0,-1);
+const XY = vec3.fromValues(1,1,0);
+const YZ = vec3.fromValues(0,1,1);
+const XZ = vec3.fromValues(1,0,1);
+const XYZ = vec3.fromValues(1,1,1);
 const DIRECTIONS = {
-    X, Y, Z
+    X, Y, Z,
+    MX, MY, MZ,
+    XY, YZ, XZ,
+    XYZ,
 };
 
 export {

@@ -82,28 +82,23 @@ class Color {
     setOpacity(a) { return Color.setOpacity(this, a) };
 }
 
-const COLOR_ARRAYS = {
-    WHITE: [1.0, 1.0, 1.0, 1.0],
-    GRAY: [0.5, 0.5, 0.5, 1.0],
-    BLACK: [0.0, 0.0, 0.0, 0.0],
+const COLORS = {
+    WHITE: new Color(1.0, 1.0, 1.0, 1.0),
+    GRAY: new Color(0.5, 0.5, 0.5, 1.0),
+    BLACK: new Color(0.0, 0.0, 0.0, 0.0),
 
-    RED: [1.0, 0.0, 0.0, 1.0],
-    GREEN: [0.0, 1.0, 0.0, 1.0],
-    BLUE: [0.0, 0.0, 1.0, 1.0],
+    RED: new Color(1.0, 0.0, 0.0, 1.0),
+    GREEN: new Color(0.0, 1.0, 0.0, 1.0),
+    BLUE: new Color(0.0, 0.0, 1.0, 1.0),
 
-    YELLOW: [1.0, 1.0, 0.0, 1.0],
-    CYAN: [0.0, 1.0, 1.0, 1.0],
-    MAGENTA: [1.0, 0.0, 1.0, 1.0],
+    YELLOW: new Color(1.0, 1.0, 0.0, 1.0),
+    CYAN: new Color(0.0, 1.0, 1.0, 1.0),
+    MAGENTA: new Color(1.0, 0.0, 1.0, 1.0),
 
-    ORANGE: [1.0, 0.5, 0.0, 1.0],
-    PINK: [1.0, 0.5, 0.5, 1.0],
-    BROWN: [0.5, 0.25, 0.0, 1.0],
+    ORANGE: new Color(1.0, 0.5, 0.0, 1.0),
+    PINK: new Color(1.0, 0.5, 0.5, 1.0),
+    BROWN: new Color(0.5, 0.25, 0.0, 1.0),
 }
-const COLORS = Object.fromEntries(
-    Object.entries(COLOR_ARRAYS).map(
-        ([ k, rgba ]) => ([ k, new Color(...rgba) ])
-    )
-);
 
 
 
@@ -132,7 +127,7 @@ function getColor(r, g, b, a = 255) {
  * @returns {Array<number>} An array of numbers; each subset of 4 entries codes, in RGBA, for a color.
  */
 function getColorBuffer(...colors) {
-    return colors.map(c => c.rgba).flat();
+    return colors.flatMap(c => c.rgba);
 }
 
 

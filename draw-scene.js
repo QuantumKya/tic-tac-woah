@@ -42,6 +42,8 @@ function drawScene(gl, programInfo, buffers) {
     setPositionAttribute(gl, buffers, programInfo);
     setColorAttribute(gl, buffers, programInfo);
 
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
     // Tell WebGL to use our program when drawing
     gl.useProgram(programInfo.program);
 
@@ -59,15 +61,16 @@ function drawScene(gl, programInfo, buffers) {
 
     {
         const offset = 0;
-        const vertexCount = 4;
-        gl.drawArrays(gl.TRIANGLE_STRIP, offset, vertexCount);
+        const vertexCount = 36;
+        const type = gl.UNSIGNED_SHORT;
+        gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     }
 }
 
 // Tell WebGL how to pull out the positions from the position
 // buffer into the vertexPosition attribute.
 function setPositionAttribute(gl, buffers, programInfo) {
-    const numComponents = 2; // pull out 2 values per iteration
+    const numComponents = 3; // pull out 3 values per iteration
     const type = gl.FLOAT; // the data in the buffer is 32bit floats
     const normalize = false; // don't normalize
     const stride = 0; // how many bytes to get from one set of values to the next

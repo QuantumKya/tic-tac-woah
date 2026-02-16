@@ -1,5 +1,5 @@
-import { avgArray, distanceToPlane, avgPoints, DIRECTIONS } from "./math_stuff";
-import { getColorBuffer, Color, COLORS } from "./color";
+import { avgArray, distanceToPlane, avgPoints, DIRECTIONS } from "./math_stuff.js";
+import { getColorBuffer, Color, COLORS } from "./color.js";
 
 class Plane {
     constructor() {}
@@ -81,23 +81,15 @@ class DrawnShape {
      */
     constructor(...points) {
         this.vertices = points;
-        this.color = COLORS.GREY;
+        this.color = COLORS.GRAY;
     }
 
     /**
-     * 
+     * Set the color of the shape.
      * @param {Color} clr 
      */
     setColor(clr) {
         this.color = clr;
-    }
-
-    getVertexBuffer() {
-        return this.vertices.map(v => [v[0], v[1], v[2]]).flat();
-    }
-
-    getColorBuffer() {
-        return getColorBuffer(this.vertices.map(a=>this.color));
     }
 }
 
@@ -136,7 +128,7 @@ class Triangle extends DrawnShape {
      */
     static fromPoints(p1, p2, p3) {
         const tri = new Triangle(p1, p2, p3);
-        if (!tri.plane) return null;
+        if (tri.area === 0) return null;
         return tri;
     }
 
@@ -148,14 +140,49 @@ class Triangle extends DrawnShape {
         return Plane.fromPoints(this.v1, this.v2, this.v3);
     }
 
-    get edgeVectorX() { return this.#getClosestToDir(DIRECTIONS.X); }
-    get edgeVectorY() { return this.#getClosestToDir(DIRECTIONS.Y); }
-    get edgeVectorZ() { return this.#getClosestToDir(DIRECTIONS.Z); }
+    get edgeVectorAB() { return this.#getEdgeVector(0,1); }
+    get edgeVectorAC() { return this.#getEdgeVector(0,2); }
+    get edgeVectorBC() { return this.#getEdgeVector(1,2); }
+    #getEdgeVector(i1, i2) {
+        const diff = vec3.create();
+        vec3.subtract(diff, this.vertices[i2], this.vertices[i1]);
+        return diff;
+    }
 
-    #getClosestToDir(dir) {
-        // Find the vertex closest aligned to the given axis
-        const dirFactors = this.vertices.map(v => Math.abs( vec3.dot(v, dir) ));
-        return this.vertices[dirFactors.indexOf(Math.max(...dirFactors))];
+    get area() {
+        const cross = vec3.create();
+        vec3.cross(cross, this.edgeVectorAB, this.edgeVectorAC);
+        return vec3.length(cross) / 2;
+    }
+
+    /**
+     * Get the barycentric coordinates of a point using the triangle.
+     * @param {vec3} p The point to find the relative coordinates of.
+     * @returns {{ α: number, β: number, γ: number }} The barycentric coordinates [α, β, γ]
+     */
+    getBarycentric(p) {
+        const αTri = Triangle.fromPoints(p, this.v2, this.v3) ?? { area: 0 };
+        const βTri = Triangle.fromPoints(p, this.v3, this.v1) ?? { area: 0 };
+        const γTri = Triangle.fromPoints(p, this.v1, this.v2) ?? { area: 0 };
+        const α = αTri.area / this.area;
+        const β = βTri.area / this.area;
+        const γ = γTri.area / this.area;
+
+        return { α, β, γ };
+    }
+
+    /**
+     * Find if a ray intersects the triangle.
+     * @param {vec3} origin The position that the raycast comes from.
+     * @param {vec3} dir The direction of the raycast.
+     * @returns {boolean} Whether the ray intersects.
+     */
+    doesRayIntersect(origin, dir) {
+        const intersect = this.plane.checkRayIntersect(origin, dir);
+        if (!intersect) return false;
+
+        const bary = this.getBarycentric(intersect);
+        return (bary.α > 0 && bary.β > 0 && bary.γ > 0);
     }
 }
 
@@ -171,7 +198,8 @@ class Polygon extends DrawnShape {
      */
     static fromPoints(...points) {
         const poly = new Polygon(...points);
-        if (poly.allTriangles.includes(null)) return null;
+        
+        if (poly.constituentTriangles.every(a=>!a)) return null;
         return poly;
     }
 
@@ -188,6 +216,82 @@ class Polygon extends DrawnShape {
                 }
             }
         }
-        return tris;
+        return tris.filter(tri => !!tri);
     }
+
+    /** @returns {Array<Array<number>>} */
+    get constituentTriangleIndices() {
+        const tris = [];
+        for (let i = 2; i < this.vertices.length; i++) {
+            tris.push([0, i-1, i]);
+        }
+        return tris.filter(tri => !!tri);
+    }
+
+    /** @returns {Array<Triangle>} */
+    get constituentTriangles() {
+        return this.constituentTriangleIndices.map(arr => Triangle.fromPoints(...arr));
+    }
+
+    getVertexBuffer() {
+        return this.vertices.flatMap(v => [v[0], v[1], v[2]]);
+    }
+
+    getIndexBuffer() {
+        return this.constituentTriangleIndices.flat();
+    }
+
+    getColorBuffer() {
+        return getColorBuffer(...Array((this.vertices.length-2)*3).fill(this.color));
+    }
+}
+
+class Quadrilateral extends Polygon {
+    constructor(p1, p2, p3, p4) {
+        super(p1, p2, p3, p4);
+    }
+
+    /**
+     * Enter points (in order by angle) to get a quadrilateral.
+     * @param {vec3} p1 The 3D position of the vertex.
+     * @param {vec3} p2 The 3D position of the vertex.
+     * @param {vec3} p3 The 3D position of the vertex.
+     * @param {vec3} p4 The 3D position of the vertex.
+     * @returns {Quadrilateral|null} The quadrilateral.
+     */
+    static fromPoints(p1, p2, p3, p4) {
+        const quad = new Quadrilateral(p1, p2, p3, p4);
+        
+        if (Triangle.fromPoints(p1, p2, p3) && Triangle.fromPoints(p1, p3, p4) && Triangle.fromPoints(p1, p2, p4)) return quad;
+    }
+
+    /**
+     * Get a parallelogram from a corner and two side vectors.
+     * @param {vec3} p Corner of the parallelogram.
+     * @param {vec3} s1 One side of the parallelogram.
+     * @param {vec3} s2 The other side of the parallelogram.
+     * @returns {Quadrilateral|null} The parallelogram.
+     */
+    static fromSides(p, s1, s2) {
+        const cross = vec3.create();
+        vec3.cross(cross, s1, s2);
+        if (vec3.length(cross) === 0) return null;
+
+        const ps1 = vec3.create();
+        const ps2 = vec3.create();
+        const pss = vec3.create();
+
+        vec3.add(ps1, p, s1);
+        vec3.add(ps2, p, s2);
+        vec3.add(pss, ps1, s2);
+
+        const para = new Quadrilateral(p, ps1, ps2, pss);
+        return para;
+    }
+}
+
+
+
+export {
+    Triangle, Polygon, Quadrilateral
 }
