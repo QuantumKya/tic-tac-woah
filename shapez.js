@@ -301,5 +301,6 @@ class Quadrilateral extends Polygon {
 
 
 export {
+    DrawnShape,
     Triangle, Polygon, Quadrilateral
 }

@@ -6,6 +6,7 @@ function initBuffers(gl, positions, colors, indices) {
         position: positionBuffer,
         color: colorBuffer,
         indices: indexBuffer,
+        indexCount: gl.getBufferParameter(gl.ELEMENT_ARRAY_BUFFER, gl.BUFFER_SIZE) / Uint16Array.BYTES_PER_ELEMENT
     };
 }
 

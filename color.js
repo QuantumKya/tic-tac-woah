@@ -36,7 +36,7 @@ class Color {
      * @returns {Color} The final, mixed color.
      */
     static lerpColors(c1, c2, t) {
-        const lerpArr = [t, 1-t];
+        const lerpArr = [1-t, t];
         return new Color(
             wAvgArray([c1.r, c2.r], lerpArr),
             wAvgArray([c1.g, c2.g], lerpArr),

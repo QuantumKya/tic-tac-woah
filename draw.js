@@ -13,6 +13,11 @@ let cubeRotation = 0.0;
 
 main();
 
+/** @returns {Array<DrawnShape>} */
+function makeShapes() {
+
+}
+
 function draw(gl, programInfo) {
     
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -44,29 +49,47 @@ function draw(gl, programInfo) {
     f6.setColor(COLORS.MAGENTA);
     */
 
-    const color1 = Color.mixColors(COLORS.BROWN, COLORS.WHITE);
+
+    const color1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 1/3);
     const color2 = COLORS.BROWN;
     
+    // hover highlight
+    
+    
+    
     const faces = [];
-    const numOfRegions = 12;
+
     const radius = 2;
+    const numOfRegions = 12;
     const per = 3;
+
+    const center = vec3.fromValues(0, -1, 0);
+
     for (let n = 0; n < numOfRegions; n++) {
         const verts = [];
-        verts.push(vec3.fromValues(0, -1, 0));
+        verts.push(center);
+
         for (let i = 0; i <= per; i++) {
-            const angle = (i) * 2 * Math.PI / (numOfRegions * per);
-            verts.push(vec3.fromValues(
+            const angle = (n + i/per) * 2*Math.PI / numOfRegions;
+
+            const offset = vec3.fromValues(
                 radius*Math.cos(angle),
-                -1,
+                0,
                 -radius*Math.sin(angle),
-            ));
+            );
+            const circlepoint = vec3.create();
+            vec3.add(circlepoint, center, offset);
+            verts.push(circlepoint);
         }
 
         const poly = Polygon.fromPoints(...verts);
         poly.setColor((n%2) ? color1 : color2);
         faces.push(poly);
     }
+
+
+
+    // ================================ PROCESS SHAPES ================================ //
 
     const positions = [];
     const colors = [];
