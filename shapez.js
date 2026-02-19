@@ -2,7 +2,10 @@ import { avgArray, distanceToPlane, avgPoints, DIRECTIONS } from "./math_stuff.j
 import { getColorBuffer, Color, COLORS } from "./color.js";
 
 class Plane {
-    constructor() {}
+    constructor() {
+        this.normal = vec3.create();
+        this.anchor = vec3.create();
+    }
 
     /**
      * Get a plane from three non-collinear points.
@@ -21,7 +24,7 @@ class Plane {
         // take cross product
         const norm = vec3.create();
         vec3.cross(norm, planev1, planev2);
-        if (vec3.sqLen(norm) === 0) return null;
+        if (vec3.length(norm) === 0) return null;
         
         vec3.normalize(norm, norm);
 
@@ -41,7 +44,7 @@ class Plane {
      * @returns {Plane|null} The produced plane (null if points are collinear).
      */
     static fromNormalAndPoint(normal, point) {
-        if (vec3.sqLen(normal) === 0) return null;
+        if (vec3.length(normal) === 0) return null;
 
         // normal should be normalized
         const norm = vec3.create();
@@ -60,10 +63,10 @@ class Plane {
      * @returns {vec3|null} The intersection point of the ray and the triangle. Returns null if no intersection.
      */
     checkRayIntersect(origin, dir) {
-        const directionDot = vec3.dot(dir, this.plane.normal);
+        const directionDot = vec3.dot(dir, this.normal);
         if (directionDot === 0) return null;
 
-        const originDot = vec3.dot(origin, this.centroid);
+        const originDot = vec3.dot(origin, this.anchor);
 
         const t = originDot / directionDot;
         if (t < 0) return null;
@@ -99,6 +102,8 @@ class DrawnShape {
     getColorBuffer() {
         return getColorBuffer(...Array(this.vertices.length).fill(this.color));
     }
+
+    getIndexBuffer() {}
 }
 
 /**
@@ -190,6 +195,7 @@ class Triangle extends DrawnShape {
         if (!intersect) return false;
 
         const bary = this.getBarycentric(intersect);
+        console.log(bary);
         return (bary.α > 0 && bary.β > 0 && bary.γ > 0);
     }
 

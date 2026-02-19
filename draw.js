@@ -1,9 +1,11 @@
 import { initBuffers } from "./init-buffers.js";
 import { drawScene } from "./draw-scene.js";
 import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
-import { Polygon, Quadrilateral } from "./shapez.js";
+import { DrawnShape, Polygon, Quadrilateral } from "./shapez.js";
 import { DIRECTIONS } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
+import { getMousePos } from "./input.js";
+import Camera from "./camera.js";
 
 shaderSet.default = await loadShaderFiles();
 
@@ -13,17 +15,12 @@ let cubeRotation = 0.0;
 
 main();
 
-/** @returns {Array<DrawnShape>} */
-function makeShapes() {
-
-}
-
-function draw(gl, programInfo) {
-    
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    // ================================ MAKE SHAPES ================================ //
+/**
+ * 
+ * @param {Camera} cam The camera.
+ * @returns {Array<DrawnShape>}
+ */
+function makeShapes(gl, cam) {
 
     /*
     const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, 2);
@@ -50,28 +47,21 @@ function draw(gl, programInfo) {
     */
 
 
-    const color1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 1/3);
-    const color2 = COLORS.BROWN;
-    
-    // hover highlight
-    
-    
-    
     const faces = [];
-
+    
     const radius = 2;
     const numOfRegions = 12;
     const per = 3;
 
     const center = vec3.fromValues(0, -1, 0);
-
+    
     for (let n = 0; n < numOfRegions; n++) {
         const verts = [];
         verts.push(center);
-
+        
         for (let i = 0; i <= per; i++) {
             const angle = (n + i/per) * 2*Math.PI / numOfRegions;
-
+            
             const offset = vec3.fromValues(
                 radius*Math.cos(angle),
                 0,
@@ -81,15 +71,54 @@ function draw(gl, programInfo) {
             vec3.add(circlepoint, center, offset);
             verts.push(circlepoint);
         }
-
+        
         const poly = Polygon.fromPoints(...verts);
-        poly.setColor((n%2) ? color1 : color2);
         faces.push(poly);
     }
+    
+
+    
+    const color1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 1/3);
+    const color2 = COLORS.BROWN;
+
+    // hover highlight
+    faces.forEach((f, i) => {
+        const mP = getMousePos();
+        const ray = cam.getRaycastFromMouse(mP);
+
+        const résultat = f.allTriangles.every(tri => tri.doesRayIntersect(vec3.fromValues(0,0,0), ray));
+
+        const newColor1 = résultat ? Color.lerpColors(color1, COLORS.WHITE, 1/3) : color1;
+        const newColor2 = résultat ? Color.lerpColors(color2, COLORS.WHITE, 1/3) : color2;
+
+        f.setColor((i%2) ? newColor1 : newColor2);
+    });
 
 
+
+    return faces;
+}
+
+function draw(gl, programInfo) {
+    
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+
+    let fieldOfView = (45 * Math.PI) / 180; // in radians
+    let zNear = 0.1;
+    let zFar = 100.0;
+    
+    const camera = new Camera(
+        gl,
+        fieldOfView,
+        zNear,
+        zFar
+    );
 
     // ================================ PROCESS SHAPES ================================ //
+    
+    const faces = makeShapes(gl, camera);
 
     const positions = [];
     const colors = [];
@@ -104,6 +133,10 @@ function draw(gl, programInfo) {
     }
     
 
+    // ================================ DRAW & LOOP ================================ //
+
+    programInfo.camera = camera;
+    
     const buffers = initBuffers(gl, positions, colors, indices);
     drawScene(gl, programInfo, buffers, cubeRotation);
 

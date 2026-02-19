@@ -1,3 +1,5 @@
+import Camera from "./camera.js";
+
 function drawScene(gl, programInfo, buffers, cubeRotation) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
@@ -15,15 +17,7 @@ function drawScene(gl, programInfo, buffers, cubeRotation) {
     // and we only want to see objects between 0.1 units
     // and 100 units away from the camera.
 
-    const fieldOfView = (45 * Math.PI) / 180; // in radians
-    const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-    const zNear = 0.1;
-    const zFar = 100.0;
-    const projectionMatrix = mat4.create();
-
-    // note: glMatrix always has the first argument
-    // as the destination to receive the result.
-    mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
+    const projectionMatrix = programInfo.camera.projectionMatrix;
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
