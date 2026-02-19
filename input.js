@@ -13,7 +13,7 @@ const takeMouse = e => {
     vec2.set(mousePos, mx, my);
 }
 
-canvas.addEventListener('mouseover', takeMouse);
+canvas.addEventListener('mousemove', takeMouse);
 canvas.addEventListener('mousedown', takeMouse);
 canvas.addEventListener('mouseup', takeMouse);
 

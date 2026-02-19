@@ -84,12 +84,12 @@ function makeShapes(gl, cam) {
     // hover highlight
     faces.forEach((f, i) => {
         const mP = getMousePos();
-        const ray = cam.getRaycastFromMouse(mP);
+        const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
 
-        const résultat = f.allTriangles.every(tri => tri.doesRayIntersect(vec3.fromValues(0,0,0), ray));
+        const résultat = f.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
 
-        const newColor1 = résultat ? Color.lerpColors(color1, COLORS.WHITE, 1/3) : color1;
-        const newColor2 = résultat ? Color.lerpColors(color2, COLORS.WHITE, 1/3) : color2;
+        const newColor1 = résultat ? COLORS.WHITE : color1;
+        const newColor2 = résultat ? COLORS.WHITE : color2;
 
         f.setColor((i%2) ? newColor1 : newColor2);
     });
@@ -105,6 +105,8 @@ function draw(gl, programInfo) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
 
+    // ================================ CAMERA CAMERA CAMERA ================================ //
+
     let fieldOfView = (45 * Math.PI) / 180; // in radians
     let zNear = 0.1;
     let zFar = 100.0;
@@ -113,8 +115,24 @@ function draw(gl, programInfo) {
         gl,
         fieldOfView,
         zNear,
-        zFar
+        zFar,
+        vec3.fromValues(0, 0, 6)
     );
+
+    // ================================ CHANGE THAT MATRIX ================================ //
+
+    camera.setMatrixFn((mat) => {
+        mat4.rotate(mat, mat,
+            Math.PI / 2,
+            [1, 0, 0],
+        );
+        mat4.rotate(mat, mat,
+            cubeRotation,
+            [0, 1, 0],
+        );
+
+        return mat;
+    });
 
     // ================================ PROCESS SHAPES ================================ //
     

@@ -64,11 +64,14 @@ class Plane {
      */
     checkRayIntersect(origin, dir) {
         const directionDot = vec3.dot(dir, this.normal);
-        if (directionDot === 0) return null;
+        if (Math.abs(directionDot) <= 1e-6) return null;
 
-        const originDot = vec3.dot(origin, this.anchor);
+        const diff = vec3.create();
+        vec3.subtract(diff, this.anchor, origin);
 
-        const t = originDot / directionDot;
+        const diffDot = vec3.dot(diff, this.normal);
+
+        const t = diffDot / directionDot;
         if (t < 0) return null;
 
         const p = vec3.create();
@@ -195,8 +198,8 @@ class Triangle extends DrawnShape {
         if (!intersect) return false;
 
         const bary = this.getBarycentric(intersect);
-        console.log(bary);
-        return (bary.α > 0 && bary.β > 0 && bary.γ > 0);
+        const sum = bary.α + bary.β + bary.γ;
+        return (bary.α > 0 && bary.β > 0 && bary.γ > 0) && (Math.abs(sum - 1) <= 1e-6);
     }
 
     getIndexBuffer() {
@@ -225,6 +228,7 @@ class Polygon extends DrawnShape {
         return avgPoints(...this.vertices);
     }
 
+    /** @returns {Array<Triangle>} */
     get allTriangles() {
         const tris = [];
         for (let i = 0; i < this.vertices.length - 2; i++) {
@@ -243,12 +247,12 @@ class Polygon extends DrawnShape {
         for (let i = 2; i < this.vertices.length; i++) {
             tris.push([0, i-1, i]);
         }
-        return tris.filter(tri => !!tri);
+        return tris;
     }
 
     /** @returns {Array<Triangle>} */
     get constituentTriangles() {
-        return this.constituentTriangleIndices.map(arr => Triangle.fromPoints(...arr));
+        return this.constituentTriangleIndices.map(arr => Triangle.fromPoints(...arr.map(i => this.vertices[i])));
     }
 
     getIndexBuffer() {

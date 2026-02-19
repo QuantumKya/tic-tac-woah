@@ -1,5 +1,3 @@
-import Camera from "./camera.js";
-
 function drawScene(gl, programInfo, buffers, cubeRotation) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
@@ -10,32 +8,19 @@ function drawScene(gl, programInfo, buffers, cubeRotation) {
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Create a perspective matrix, a special matrix that is
-    // used to simulate the distortion of perspective in a camera.
-    // Our field of view is 45 degrees, with a width/height
-    // ratio that matches the display size of the canvas
-    // and we only want to see objects between 0.1 units
-    // and 100 units away from the camera.
+
+
+    // time for the view matrix!!!
 
     const projectionMatrix = programInfo.camera.projectionMatrix;
+    const viewMatrix = programInfo.camera.viewMatrix;
 
-    // Set the drawing position to the "identity" point, which is
-    // the center of the scene.
-    const modelViewMatrix = mat4.create();
+    // Set the drawing position to that provided by the camera,
+    // which is translated by the camera's "position"
+    // and other necessary transformations.
+    const modelViewMatrix = mat4.clone(viewMatrix);
 
-    // Now move the drawing position a bit to where we want to
-    // start drawing the square.
-    mat4.translate(
-        modelViewMatrix, // destination matrix
-        modelViewMatrix, // matrix to translate
-        [-0.0, 0.0, -6.0],
-    ); // amount to translate
-    mat4.rotate(
-        modelViewMatrix,
-        modelViewMatrix,
-        cubeRotation,
-        [0, 1, 0],
-    );
+    
 
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
