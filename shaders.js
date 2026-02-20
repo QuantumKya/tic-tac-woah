@@ -1,12 +1,19 @@
 // ============================= SHADERS ============================= //
 
 const shaderSet = {};
+/** @returns {{ vsSource: string, fsSource: string }} */
 async function loadShaderFiles() {
     const vsSource = await (await fetch('vertex.glsl')).text();
     const fsSource = await (await fetch('fragment.glsl')).text();
     return { vsSource, fsSource };
 }
 
+/**
+ * @param {WebGLRenderingContext} gl 
+ * @param {string} vertex 
+ * @param {string} fragment 
+ * @returns {WebGLProgram}
+ */
 function initShader(gl, vertex, fragment) {
     const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vertex);
     const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fragment);
@@ -25,6 +32,12 @@ function initShader(gl, vertex, fragment) {
     return shaderProgram;
 }
 
+/**
+ * @param {WebGLRenderingContext} gl 
+ * @param {number} type 
+ * @param {string} source 
+ * @returns {WebGLShader|null}
+ */
 function loadShader(gl, type, source) {
     const shader = gl.createShader(type);
 

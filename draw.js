@@ -8,15 +8,13 @@ import { getMousePos } from "./input.js";
 import Camera from "./camera.js";
 
 shaderSet.default = await loadShaderFiles();
+main();
 
 // ================================ STUFF THAT CHANGES ================================ //
 let cubeRotation = 0.0;
 
-
-main();
-
 /**
- * 
+ * @param {WebGLRenderingContext} gl The WebGL renderer.
  * @param {Camera} cam The camera.
  * @returns {Array<DrawnShape>}
  */
@@ -99,6 +97,8 @@ function makeShapes(gl, cam) {
     return faces;
 }
 
+
+/** @param {WebGLRenderingContext} gl */
 function draw(gl, programInfo) {
     
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -122,10 +122,6 @@ function draw(gl, programInfo) {
     // ================================ CHANGE THAT MATRIX ================================ //
 
     camera.setMatrixFn((mat) => {
-        mat4.rotate(mat, mat,
-            Math.PI / 2,
-            [1, 0, 0],
-        );
         mat4.rotate(mat, mat,
             cubeRotation,
             [0, 1, 0],
@@ -156,7 +152,7 @@ function draw(gl, programInfo) {
     programInfo.camera = camera;
     
     const buffers = initBuffers(gl, positions, colors, indices);
-    drawScene(gl, programInfo, buffers, cubeRotation);
+    drawScene(gl, programInfo, buffers);
 
     requestAnimationFrame(() => draw(gl, programInfo));
     cubeRotation += 0.01;

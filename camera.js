@@ -1,11 +1,10 @@
 class Camera {
     /**
-     * 
-     * @param {*} gl 
-     * @param {number} fov angle of FOV in radians
-     * @param {number} znear 
-     * @param {number} zfar 
-     * @param {vec3} offsetPos 
+     * @param {WebGLRenderingContext} gl
+     * @param {number} fov angle of FOV in radians.
+     * @param {number} znear the Z coordinate of the near face of clip space.
+     * @param {number} zfar the Z coordinate of the far face of clip space.
+     * @param {vec3} offsetPos the "position" of the camera in the scene.
      */
     constructor(gl, fov, znear, zfar, offsetPos = vec3.fromValues(0,0,0)) {
         this.fieldOfView = fov;

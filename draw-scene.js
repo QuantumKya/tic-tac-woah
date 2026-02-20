@@ -1,4 +1,11 @@
-function drawScene(gl, programInfo, buffers, cubeRotation) {
+import Camera from "./camera.js";
+
+/**
+ * @param {WebGLRenderingContext} gl 
+ * @param {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} buffers 
+ * @param {Camera} camera
+ */
+function drawScene(gl, programInfo, buffers, camera) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
