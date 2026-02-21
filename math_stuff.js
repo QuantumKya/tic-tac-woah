@@ -4,8 +4,8 @@ const avgArray = (arr) => {
     return sum / arr.length;
 }
 const wAvgArray = (arr, weights) => {
-    if (!(arr.length === weights.length)) return 0;
-    if (arr.length === 0 || weights === 0) return 0;
+    if (arr.length !== weights.length) return 0;
+    if (arr.length === 0 || weights.length === 0) return 0;
 
     let arrSum = 0;
     let weightSum = 0;
@@ -19,6 +19,12 @@ const wAvgArray = (arr, weights) => {
     return arrSum / weightSum;
 }
 
+/**
+ * @param {vec3} point 
+ * @param {vec3} norm 
+ * @param {vec3} anchor 
+ * @returns {number}
+ */
 function distanceToPlane(point, norm, anchor) {
     const nNorm = vec3.create();
     vec3.normalize(nNorm, norm);
@@ -57,10 +63,21 @@ const DIRECTIONS = {
     XYZ,
 };
 
+
+
+/** @param {...number} xs @returns {Array<number>} */
+const unNoise = (...xs) => {
+    return xs.map(x => {
+        if (Math.abs(x) <= 1e-4) return 0;
+        return x;
+    });
+}
+
 export {
     avgArray,
     wAvgArray,
     distanceToPlane,
     avgPoints,
-    DIRECTIONS
+    DIRECTIONS,
+    unNoise,
 }
