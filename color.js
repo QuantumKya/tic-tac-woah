@@ -1,14 +1,18 @@
 import { avgArray, wAvgArray } from "./math_stuff.js";
 
-class Color {
+class Color extends Array {
     constructor(r, g, b, a) {
-        this.rgba = [r, g, b, a];
+        super(r, g, b, a);
     }
 
-    get r() { return this.rgba[0]; }
-    get g() { return this.rgba[1]; }
-    get b() { return this.rgba[2]; }
-    get a() { return this.rgba[3]; }
+    get r() { return this[0]; }
+    get g() { return this[1]; }
+    get b() { return this[2]; }
+    get a() { return this[3]; }
+    get rgb() { return [this.r, this.g, this.b]; }
+    get rgba() { return [...this]; }
+
+    get rawColor() { return new Color(...this.rgb, 0); }
     
 
 

@@ -2,16 +2,23 @@ import { initBuffers } from "./init-buffers.js";
 import { drawScene } from "./draw-scene.js";
 import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
 import { DrawnShape, Polygon, Quadrilateral } from "./shapez.js";
-import { DIRECTIONS } from "./math_stuff.js";
+import { DIRECTIONS, unNoise } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
-import { getMousePos } from "./input.js";
+import { getCamMove, getMousePos } from "./input.js";
 import Camera from "./camera.js";
+
+
+
+// ================================ STUFF THAT CHANGES ================================ //
+let cubeRotation = 0.0;
+let cameraRho = 6.0;
+let cameraTheta = Math.PI / 2;
+let cameraPhi = Math.PI / 2;
 
 shaderSet.default = await loadShaderFiles();
 main();
 
-// ================================ STUFF THAT CHANGES ================================ //
-let cubeRotation = 0.0;
+
 
 /**
  * @param {WebGLRenderingContext} gl The WebGL renderer.
@@ -20,58 +27,73 @@ let cubeRotation = 0.0;
  */
 function makeShapes(gl, cam) {
 
-    /*
-    const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, 2);
-    const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, 2);
-    const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, 2);
-    const scaledMX = vec3.scale(vec3.create(), DIRECTIONS.MX, 2);
-    const scaledMY = vec3.scale(vec3.create(), DIRECTIONS.MY, 2);
-    const scaledMZ = vec3.scale(vec3.create(), DIRECTIONS.MZ, 2);
+    const cubeRadius = 8;
+    const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
+    const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, cubeRadius*2);
+    const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, cubeRadius*2);
+    const scaledMX = vec3.scale(vec3.create(), DIRECTIONS.MX, cubeRadius*2);
+    const scaledMY = vec3.scale(vec3.create(), DIRECTIONS.MY, cubeRadius*2);
+    const scaledMZ = vec3.scale(vec3.create(), DIRECTIONS.MZ, cubeRadius*2);
+
+    const halfXYZ = vec3.scale(vec3.create(), DIRECTIONS.XYZ, cubeRadius);
+    const halfMXYZ = vec3.scale(vec3.create(), DIRECTIONS.XYZ, -cubeRadius);
 
     // Make cube
-    const f1 = Quadrilateral.fromSides(vec3.fromValues(-1.0,-1.0,-1.0), scaledX, scaledY);
-    const f2 = Quadrilateral.fromSides(vec3.fromValues(-1.0,-1.0,-1.0), scaledX, scaledZ);
-    const f3 = Quadrilateral.fromSides(vec3.fromValues(-1.0,-1.0,-1.0), scaledY, scaledZ);
-    const f4 = Quadrilateral.fromSides(vec3.fromValues( 1.0, 1.0, 1.0), scaledMX, scaledMY);
-    const f5 = Quadrilateral.fromSides(vec3.fromValues( 1.0, 1.0, 1.0), scaledMX, scaledMZ);
-    const f6 = Quadrilateral.fromSides(vec3.fromValues( 1.0, 1.0, 1.0), scaledMY, scaledMZ);
-    const faces = [f1,f2,f3,f4,f5,f6];
+    const f1 = Quadrilateral.fromSides(halfMXYZ, scaledX, scaledY);
+    const f2 = Quadrilateral.fromSides(halfMXYZ, scaledX, scaledZ);
+    const f3 = Quadrilateral.fromSides(halfMXYZ, scaledY, scaledZ);
+    const f4 = Quadrilateral.fromSides(halfXYZ, scaledMX, scaledMY);
+    const f5 = Quadrilateral.fromSides(halfXYZ, scaledMX, scaledMZ);
+    const f6 = Quadrilateral.fromSides(halfXYZ, scaledMY, scaledMZ);
     f1.setColor(COLORS.RED);
     f2.setColor(COLORS.BLUE);
     f3.setColor(COLORS.GREEN);
     f4.setColor(COLORS.YELLOW);
     f5.setColor(COLORS.CYAN);
     f6.setColor(COLORS.MAGENTA);
-    */
+    const faces = [f1,f2,f3,f4,f5,f6];
 
 
-    const faces = [];
     
-    const radius = 2;
+    
+    const radius = 3;
     const numOfRegions = 12;
-    const per = 3;
+    const per = 4;
+
+    const rows = 4;
+    const rowrad = radius/(rows+1);
 
     const center = vec3.fromValues(0, -1, 0);
     
-    for (let n = 0; n < numOfRegions; n++) {
-        const verts = [];
-        verts.push(center);
-        
-        for (let i = 0; i <= per; i++) {
-            const angle = (n + i/per) * 2*Math.PI / numOfRegions;
+    for (let r = 1; r <= rows; r++) {
+        const inrad = r*rowrad;
+        const outrad = (r+1)*rowrad;
+
+        for (let n = 0; n < numOfRegions; n++) {
+            const verts = [];
             
-            const offset = vec3.fromValues(
-                radius*Math.cos(angle),
-                0,
-                -radius*Math.sin(angle),
-            );
-            const circlepoint = vec3.create();
-            vec3.add(circlepoint, center, offset);
-            verts.push(circlepoint);
+            const fromRad = (rad, direction) => {
+                for (let i = 0; i <= per; i++) {
+                    const thetaIndex = (n + Math.max(0, -direction) + direction * i/per);
+                    const angle = thetaIndex * 2*Math.PI / numOfRegions;
+                    
+                    const offset = vec3.fromValues(
+                        rad*Math.cos(angle),
+                        0,
+                        -rad*Math.sin(angle),
+                    );
+                    const circlepoint = vec3.create();
+                    vec3.add(circlepoint, center, offset);
+                    verts.push(circlepoint);
+                }
+            }
+
+            fromRad(inrad, 1);
+            fromRad(outrad, -1);
+            
+            const poly = Polygon.fromPoints(...verts);
+            faces.push(poly);
         }
-        
-        const poly = Polygon.fromPoints(...verts);
-        faces.push(poly);
     }
     
 
@@ -80,7 +102,9 @@ function makeShapes(gl, cam) {
     const color2 = COLORS.BROWN;
 
     // hover highlight
-    faces.forEach((f, i) => {
+    for (let i = 6; i < faces.length; i++) {
+        const f = faces[i];
+
         const mP = getMousePos();
         const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
 
@@ -89,8 +113,9 @@ function makeShapes(gl, cam) {
         const newColor1 = résultat ? COLORS.WHITE : color1;
         const newColor2 = résultat ? COLORS.WHITE : color2;
 
-        f.setColor((i%2) ? newColor1 : newColor2);
-    });
+        const r = Math.floor(i / 12);
+        f.setColor(((i + r%2)%2) ? newColor1 : newColor2);
+    }
 
 
 
@@ -98,34 +123,47 @@ function makeShapes(gl, cam) {
 }
 
 
-/** @param {WebGLRenderingContext} gl */
-function draw(gl, programInfo) {
+/**
+ * @param {WebGLRenderingContext} gl The WebGL rendering context.
+ * @param {object} programInfo
+ * @param {Camera} camera The camera.
+ */
+function draw(gl, programInfo, camera) {
     
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
 
-    // ================================ CAMERA CAMERA CAMERA ================================ //
 
-    let fieldOfView = (45 * Math.PI) / 180; // in radians
-    let zNear = 0.1;
-    let zFar = 100.0;
+    // ================================ CAMERA CHANGES ================================ //
+
+    const moveCommand = getCamMove();
+    cameraTheta += moveCommand[0] * 0.01;
+    cameraTheta %= (2 * Math.PI);
+    cameraPhi += moveCommand[1] * 0.01;
+    cameraPhi = Math.max(cameraPhi, 0);
+    cameraPhi = Math.min(cameraPhi, Math.PI);
     
-    const camera = new Camera(
-        gl,
-        fieldOfView,
-        zNear,
-        zFar,
-        vec3.fromValues(0, 0, 6)
-    );
+
+    let camX = cameraRho * Math.sin(cameraPhi) * Math.cos(cameraTheta);
+    let camY = cameraRho * Math.cos(cameraPhi);
+    let camZ = cameraRho * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+
+    [camX, camY, camZ] = unNoise(camX, camY, camZ);
+
+    console.log(camX, camY, camZ);
+    camera.setPosition(camX, camY, camZ);
+    camera.setTargetPosition(vec3.fromValues(0,0,0));
 
     // ================================ CHANGE THAT MATRIX ================================ //
 
     camera.setMatrixFn((mat) => {
+        /*
         mat4.rotate(mat, mat,
             cubeRotation,
             [0, 1, 0],
         );
+        */
 
         return mat;
     });
@@ -154,7 +192,7 @@ function draw(gl, programInfo) {
     const buffers = initBuffers(gl, positions, colors, indices);
     drawScene(gl, programInfo, buffers);
 
-    requestAnimationFrame(() => draw(gl, programInfo));
+    requestAnimationFrame(() => draw(gl, programInfo, camera));
     cubeRotation += 0.01;
 }
 
@@ -186,5 +224,17 @@ function main() {
         },
     }
 
-    draw(gl, programInfo);
+    // ================================ CAMERA CAMERA CAMERA ================================ //
+
+    let fieldOfView = (45 * Math.PI) / 180; // in radians
+    let zNear = 0.1;
+    let zFar = 100.0;
+    const camera = new Camera(
+        gl,
+        fieldOfView,
+        zNear,
+        zFar
+    );
+
+    draw(gl, programInfo, camera);
 }

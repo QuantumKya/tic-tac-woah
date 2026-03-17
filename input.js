@@ -34,7 +34,7 @@ const getKeyInputs = e => {
     else if (e.type === 'keyup') b = false;
     else return;
 
-    Object.keys(keysDown).forEach(k => { if (e.key === k) keysDown[k] = b; });
+    Object.keys(keysDown).forEach(k => { if (e.code === k) keysDown[k] = b; });
 };
 
 canvas.addEventListener('mousemove', takeMouse);

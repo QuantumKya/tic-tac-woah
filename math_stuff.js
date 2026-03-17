@@ -68,9 +68,27 @@ const DIRECTIONS = {
 /** @param {...number} xs @returns {Array<number>} */
 const unNoise = (...xs) => {
     return xs.map(x => {
-        if (Math.abs(x) <= 1e-4) return 0;
+        if (Math.abs(x) <= 1e-5) return 0;
         return x;
     });
+}
+
+/** @param {mat4} mat Rotation matrix. @returns {vec3} */
+const getEulerAnglesFromMatrix = (mat) => {
+    let x, y, z;
+
+    y = Math.asin(-mat[2]);
+
+    if (Math.abs(mat[2]) < 1 - 1e-6) {
+        x = Math.atan2(mat[6], mat[10]);
+        z = Math.atan2(mat[1], mat[0]);
+    }
+    else { // gimbal lock
+        x = Math.atan2(-mat[9], mat[5]);
+        z = 0;
+    }
+
+    return vec3.fromValues(x, y, z);
 }
 
 export {
@@ -80,4 +98,5 @@ export {
     avgPoints,
     DIRECTIONS,
     unNoise,
+    getEulerAnglesFromMatrix,
 }

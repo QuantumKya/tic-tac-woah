@@ -1,3 +1,5 @@
+import { DIRECTIONS, getEulerAnglesFromMatrix, unNoise } from "./math_stuff.js";
+
 class Camera {
     /**
      * @param {WebGLRenderingContext} gl
@@ -6,7 +8,7 @@ class Camera {
      * @param {number} zfar the Z coordinate of the far face of clip space.
      * @param {vec3} offsetPos the "position" of the camera in the scene.
      */
-    constructor(gl, fov, znear, zfar, offsetPos = vec3.fromValues(0,0,0)) {
+    constructor(gl, fov, znear, zfar, offsetPos = vec3.create()) {
         this.fieldOfView = fov;
 
         this.glWidth = gl.canvas.clientWidth;
@@ -17,6 +19,7 @@ class Camera {
         this.zFar = zfar;
 
         this.position = offsetPos;
+        this.rotation = vec3.create();
         this.matrixFn = (mat) => mat;
     }
 
@@ -29,11 +32,15 @@ class Camera {
 
     /** @returns {mat4} */
     get viewMatrix() {
-        const view = mat4.create();
+        const camMatrix = mat4.create();
         
-        const flippos = vec3.create();
-        vec3.negate(flippos, this.position);
-        mat4.translate(view, view, [flippos[0], flippos[1], flippos[2]]);
+        mat4.translate(camMatrix, camMatrix, this.position);
+        mat4.rotateY(camMatrix, camMatrix, this.rotation[1]);
+        mat4.rotateX(camMatrix, camMatrix, this.rotation[0]);
+        mat4.rotateZ(camMatrix, camMatrix, this.rotation[2]);
+
+        const view = mat4.create();
+        mat4.invert(view, camMatrix);
 
         this.matrixFn(view);
 
@@ -46,8 +53,68 @@ class Camera {
     }
 
     /**
+     * @param {number} x X coordinate.
+     * @param {number} y Y coordinate.
+     * @param {number} z Z coordinate.
+     */
+    setPosition(x, y, z) { vec3.set(this.position, x, y, z); }
+    
+    /** @param {vec3} pos */
+    setTargetPosition(pos) {
+        const dir = vec3.create();
+        vec3.subtract(dir, pos, this.position);
+        vec3.normalize(dir, dir);
+        this.setFacingDirection(dir);
+    }
+
+
+
+    /**
+     * @param {number} x X coordinate.
+     * @param {number} y Y coordinate.
+     * @param {number} z Z coordinate.
+     */
+    moveBy(x, y, z) {
+        const moveVec = vec3.fromValues(x, y, z);
+        vec3.add(this.position, this.position, moveVec);
+    }
+    
+    /**
+     * @param {number} rotX Angle about the X axis.
+     * @param {number} rotY Angle about the Y axis.
+     * @param {number} rotZ Angle about the Z axis.
+     */
+    setRotation(rotX, rotY, rotZ) { vec3.set(this.rotation, rotX, rotY, rotZ); }
+
+    /**
+     * @param {number} rotX Angle to rotate the camera by about the X axis.
+     * @param {number} rotY Angle to rotate the camera by about the Y axis.
+     * @param {number} rotZ Angle to rotate the camera by about the Z axis.
+     */
+    rotateBy(rotX, rotY, rotZ) {
+        const rotateVec = vec3.fromValues(rotX, rotY, rotZ);
+        vec3.add(this.rotation, this.rotation, rotateVec);
+    }
+
+    /** @param {number} rot Angle about the X axis. */
+    setRotationX(rot) { this.rotation[0] = rot; }
+    /** @param {number} rot Angle about the Y axis. */
+    setRotationY(rot) { this.rotation[1] = rot; }
+    /** @param {number} rot Angle about the Z axis. */
+    setRotationZ(rot) { this.rotation[2] = rot; }
+
+    /** @param {vec3} dir Direction for the camera to face. */
+    setFacingDirection(dir) {
+        const rotX = Math.atan2(dir[1], Math.hypot(dir[0], dir[2])) // pitch
+        const rotY = - Math.PI/2 -Math.atan2(dir[2], dir[0]); // yaw
+        const rotZ = 0;
+
+        this.setRotation(rotX, rotY, rotZ);
+    }
+
+    /**
      * @param {vec2} mousePos The mouse position on the canvas.
-     * @returns {vec3} The direction of the raycast (the origin of the ray is the camera's position).
+     * @returns {{ origin: vec3, dir: vec3 }} The direction of the raycast (the origin of the ray is the camera's position).
      */
     getRaycastFromMouse(mousePos) {
         // convert to NDC
