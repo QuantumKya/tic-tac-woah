@@ -91,6 +91,17 @@ const getEulerAnglesFromMatrix = (mat) => {
     return vec3.fromValues(x, y, z);
 }
 
+const getQuatFromEulerRad = (rotX, rotY, rotZ) => {
+    const rotQuat = quat.create();
+    quat.fromEuler(rotQuat,
+        rotX * 180/Math.PI,
+        rotY * 180/Math.PI,
+        rotZ * 180/Math.PI,
+        'yxz'
+    );
+    return rotQuat;
+};
+
 export {
     avgArray,
     wAvgArray,
@@ -99,4 +110,5 @@ export {
     DIRECTIONS,
     unNoise,
     getEulerAnglesFromMatrix,
+    getQuatFromEulerRad
 }

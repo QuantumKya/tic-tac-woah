@@ -12,7 +12,7 @@ import Camera from "./camera.js";
 // ================================ STUFF THAT CHANGES ================================ //
 let cubeRotation = 0.0;
 let cameraRho = 6.0;
-let cameraTheta = Math.PI / 2;
+let cameraTheta = 0;
 let cameraPhi = Math.PI / 2;
 
 shaderSet.default = await loadShaderFiles();
@@ -141,8 +141,8 @@ function draw(gl, programInfo, camera) {
     cameraTheta += moveCommand[0] * 0.01;
     cameraTheta %= (2 * Math.PI);
     cameraPhi += moveCommand[1] * 0.01;
-    cameraPhi = Math.max(cameraPhi, 0);
-    cameraPhi = Math.min(cameraPhi, Math.PI);
+    cameraPhi = Math.max(cameraPhi, 1e-4);
+    cameraPhi = Math.min(cameraPhi, Math.PI - 1e-4);
     
 
     let camX = cameraRho * Math.sin(cameraPhi) * Math.cos(cameraTheta);
@@ -158,13 +158,6 @@ function draw(gl, programInfo, camera) {
     // ================================ CHANGE THAT MATRIX ================================ //
 
     camera.setMatrixFn((mat) => {
-        /*
-        mat4.rotate(mat, mat,
-            cubeRotation,
-            [0, 1, 0],
-        );
-        */
-
         return mat;
     });
 

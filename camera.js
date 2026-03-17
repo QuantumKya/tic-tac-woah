@@ -1,4 +1,4 @@
-import { DIRECTIONS, getEulerAnglesFromMatrix, unNoise } from "./math_stuff.js";
+import { DIRECTIONS, getQuatFromEulerRad } from "./math_stuff.js";
 
 class Camera {
     /**
@@ -19,7 +19,7 @@ class Camera {
         this.zFar = zfar;
 
         this.position = offsetPos;
-        this.rotation = vec3.create();
+        this.rotationQuat = quat.create();
         this.matrixFn = (mat) => mat;
     }
 
@@ -33,11 +33,11 @@ class Camera {
     /** @returns {mat4} */
     get viewMatrix() {
         const camMatrix = mat4.create();
-        
-        mat4.translate(camMatrix, camMatrix, this.position);
-        mat4.rotateY(camMatrix, camMatrix, this.rotation[1]);
-        mat4.rotateX(camMatrix, camMatrix, this.rotation[0]);
-        mat4.rotateZ(camMatrix, camMatrix, this.rotation[2]);
+        mat4.fromRotationTranslation(
+            camMatrix,
+            this.rotationQuat,
+            this.position
+        );
 
         const view = mat4.create();
         mat4.invert(view, camMatrix);
@@ -61,10 +61,19 @@ class Camera {
     
     /** @param {vec3} pos */
     setTargetPosition(pos) {
-        const dir = vec3.create();
-        vec3.subtract(dir, pos, this.position);
-        vec3.normalize(dir, dir);
-        this.setFacingDirection(dir);
+        const view = mat4.create();
+        mat4.lookAt(view, this.position, pos, DIRECTIONS.Y);
+        const world = mat4.create();
+        mat4.invert(world, view);
+
+        mat4.getRotation(this.rotationQuat, world);
+    }
+
+    /** @param {vec3} dir Direction for the camera to face. */
+    setFacingDirection(dir) {
+        const target = vec3.create();
+        vec3.add(target, this.position, dir);
+        this.setTargetPosition(target);
     }
 
 
@@ -84,7 +93,9 @@ class Camera {
      * @param {number} rotY Angle about the Y axis.
      * @param {number} rotZ Angle about the Z axis.
      */
-    setRotation(rotX, rotY, rotZ) { vec3.set(this.rotation, rotX, rotY, rotZ); }
+    setRotation(rotX, rotY, rotZ) {
+        this.rotationQuat = getQuatFromEulerRad(rotX, rotY, rotZ);
+    }
 
     /**
      * @param {number} rotX Angle to rotate the camera by about the X axis.
@@ -92,25 +103,21 @@ class Camera {
      * @param {number} rotZ Angle to rotate the camera by about the Z axis.
      */
     rotateBy(rotX, rotY, rotZ) {
-        const rotateVec = vec3.fromValues(rotX, rotY, rotZ);
-        vec3.add(this.rotation, this.rotation, rotateVec);
+        const rotatorQuat = getQuatFromEulerRad(rotX, rotY, rotZ);
+        quat.multiply(this.rotationQuat, this.rotationQuat, rotatorQuat);
     }
 
     /** @param {number} rot Angle about the X axis. */
-    setRotationX(rot) { this.rotation[0] = rot; }
+    rotateX(rot) { quat.rotateX(this.rotationQuat, this.rotationQuat, rot); }
     /** @param {number} rot Angle about the Y axis. */
-    setRotationY(rot) { this.rotation[1] = rot; }
+    rotateY(rot) { quat.rotateY(this.rotationQuat, this.rotationQuat, rot); }
     /** @param {number} rot Angle about the Z axis. */
-    setRotationZ(rot) { this.rotation[2] = rot; }
+    rotateZ(rot) { quat.rotateZ(this.rotationQuat, this.rotationQuat, rot); }
 
-    /** @param {vec3} dir Direction for the camera to face. */
-    setFacingDirection(dir) {
-        const rotX = Math.atan2(dir[1], Math.hypot(dir[0], dir[2])) // pitch
-        const rotY = - Math.PI/2 -Math.atan2(dir[2], dir[0]); // yaw
-        const rotZ = 0;
+    /** @param {number} rot Angle to roll camera by. */
+    roll(angle) { this.rotateZ(rot); }
 
-        this.setRotation(rotX, rotY, rotZ);
-    }
+
 
     /**
      * @param {vec2} mousePos The mouse position on the canvas.
@@ -136,7 +143,7 @@ class Camera {
         vec4.transformMat4(pNearCamera, clipNear, inverseProjection);
         vec4.transformMat4(pFarCamera, clipFar, inverseProjection);
 
-        // divide by w
+        // divide by w (idk I kinda looked it up)
         vec4.scale(pNearCamera, pNearCamera, 1/pNearCamera[3]);
         vec4.scale(pFarCamera, pFarCamera, 1/pFarCamera[3]);
 
@@ -155,7 +162,7 @@ class Camera {
         const pNear = vec3.fromValues(pNearWorld[0], pNearWorld[1], pNearWorld[2]);
         const pFar = vec3.fromValues(pFarWorld[0], pFarWorld[1], pFarWorld[2]);
 
-        // get final direction and normalize it
+        // get final direction and normalize it!
         const dir = vec3.create();
         vec3.subtract(dir, pFar, pNear);
         vec3.normalize(dir, dir);
