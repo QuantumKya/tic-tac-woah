@@ -25,22 +25,22 @@ const getCamMove = () => {
     vec2.subtract(mouseElapsed, getMousePos(), lastMouse);
     console.log(mouseElapsed, rightMousing);
 
-    const out = [
+    const scrl = scrollDelta;
+
+    lastMouse = getMousePos();
+    scrollDelta = 0;
+
+    return [
         Number(keysDown.KeyD) - Number(keysDown.KeyA) + mouseElapsed[0] * Number(rightMousing) * 0.5,
         Number(keysDown.KeyW) - Number(keysDown.KeyS) + mouseElapsed[1] * Number(rightMousing) * 0.5,
-        Number(keysDown.KeyE) - Number(keysDown.KeyQ) + scrollDelta * 0.01
+        Number(keysDown.KeyE) - Number(keysDown.KeyQ) + scrl * 0.05
     ];
-
-    scrollDelta = 0;
-    return out;
 };
 
 
 
 /** @param {MouseEvent} e */
 const takeMouse = e => {
-    lastMouse = getMousePos();
-
     if (e.button === 2) {
         e.preventDefault();
         if (e.type === 'mousedown') {
