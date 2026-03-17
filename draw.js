@@ -27,7 +27,7 @@ main();
  */
 function makeShapes(gl, cam) {
 
-    const cubeRadius = 8;
+    const cubeRadius = 10;
     const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
     const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, cubeRadius*2);
     const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, cubeRadius*2);
@@ -143,6 +143,7 @@ function draw(gl, programInfo, camera) {
     cameraPhi += moveCommand[1] * 0.01;
     cameraPhi = Math.max(cameraPhi, 1e-4);
     cameraPhi = Math.min(cameraPhi, Math.PI - 1e-4);
+    cameraRho -= moveCommand[2] * 0.05;
     
 
     let camX = cameraRho * Math.sin(cameraPhi) * Math.cos(cameraTheta);
