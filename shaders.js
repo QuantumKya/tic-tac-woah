@@ -2,9 +2,9 @@
 
 const shaderSet = {};
 /** @returns {{ vsSource: string, fsSource: string }} */
-async function loadShaderFiles() {
-    const vsSource = await (await fetch('vertex.glsl')).text();
-    const fsSource = await (await fetch('fragment.glsl')).text();
+async function loadShaderFiles(fFile, vFile) {
+    const vsSource = await (await fetch(fFile)).text();
+    const fsSource = await (await fetch(vFile)).text();
     return { vsSource, fsSource };
 }
 

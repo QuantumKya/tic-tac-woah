@@ -40,7 +40,7 @@ const getCamMove = () => {
 
 
 /** @param {MouseEvent} e */
-const takeMouse = e => {
+const takeMouse = async e => {
     if (e.button === 2) {
         e.preventDefault();
         if (e.type === 'mousedown') {

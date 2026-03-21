@@ -244,8 +244,14 @@ class Polygon extends DrawnShape {
     /** @returns {Array<Array<number>>} */
     get constituentTriangleIndices() {
         const tris = [];
-        for (let i = 2; i < this.vertices.length; i++) {
-            tris.push([0, i-1, i]);
+        let i = 0;
+        let j = this.vertices.length-1;
+
+        let k = 1;
+
+        while (j > i+1) {
+            tris.push(k%2 ? [i, j, ++i] : [j, i, --j]);
+            k++;
         }
         return tris;
     }

@@ -51,6 +51,12 @@ function drawScene(gl, programInfo, buffers, camera) {
         modelViewMatrix,
     );
 
+    gl.uniform2f(
+        gl.getUniformLocation(programInfo.program, "uRandomAddend"),
+        Math.random()*0.2,
+        Math.random()*0.2
+    );
+
     {
         const offset = 0;
         const type = gl.UNSIGNED_SHORT;

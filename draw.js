@@ -15,7 +15,10 @@ let cameraRho = 6.0;
 let cameraTheta = 0;
 let cameraPhi = Math.PI / 2;
 
-shaderSet.default = await loadShaderFiles();
+shaderSet.default = await loadShaderFiles('vertex.glsl', 'fragment.glsl');
+shaderSet.shaky = await loadShaderFiles('shaky.glsl', 'fragment.glsl');
+
+const currentShader = shaderSet.shaky;
 main();
 
 
@@ -114,7 +117,7 @@ function makeShapes(gl, cam) {
         const newColor2 = résultat ? COLORS.WHITE : color2;
 
         const r = Math.floor(i / 12);
-        f.setColor(((i + r%2)%2) ? newColor1 : newColor2);
+        f.setColor((i%12+r)%2 ? newColor1 : newColor2);
     }
 
 
@@ -138,12 +141,17 @@ function draw(gl, programInfo, camera) {
     // ================================ CAMERA CHANGES ================================ //
 
     const moveCommand = getCamMove();
+
     cameraTheta += moveCommand[0] * 0.01;
     cameraTheta %= (2 * Math.PI);
+
     cameraPhi += moveCommand[1] * 0.01;
     cameraPhi = Math.max(cameraPhi, 1e-4);
     cameraPhi = Math.min(cameraPhi, Math.PI - 1e-4);
+
     cameraRho -= moveCommand[2] * 0.05;
+    cameraRho = Math.max(0.75, cameraRho);
+    
     
 
     let camX = cameraRho * Math.sin(cameraPhi) * Math.cos(cameraTheta);
@@ -203,8 +211,8 @@ function main() {
 
 
 
-    const vsSource = shaderSet.default.vsSource;
-    const fsSource = shaderSet.default.fsSource;
+    const vsSource = currentShader.vsSource;
+    const fsSource = currentShader.fsSource;
     const shaderProgram = initShader(gl, vsSource, fsSource);
     const programInfo = {
         program: shaderProgram,
