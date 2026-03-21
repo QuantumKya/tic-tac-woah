@@ -15,9 +15,9 @@ float random (vec2 co) {
 void main() {
     gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
     gl_Position = gl_Position + vec4(
-        (random(gl_Position.xy + uRandomAddend + vec2(0,0)) - 0.5) * 0.12,
-        (random(gl_Position.xy + uRandomAddend + vec2(0,1)) - 0.5) * 0.12,
-        (random(gl_Position.xy + uRandomAddend + vec2(0,2)) - 0.5) * 0.12,
+        (random(aVertexPosition.xy + uRandomAddend + vec2(0,0)) - 0.5) * 0.12,
+        (random(aVertexPosition.yz + uRandomAddend + vec2(0,1)) - 0.5) * 0.12,
+        (random(aVertexPosition.xz + uRandomAddend + vec2(0,2)) - 0.5) * 0.12,
         0
     );
     vColor = aVertexColor;

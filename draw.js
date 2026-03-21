@@ -18,6 +18,11 @@ let cameraPhi = Math.PI / 2;
 shaderSet.default = await loadShaderFiles('vertex.glsl', 'fragment.glsl');
 shaderSet.shaky = await loadShaderFiles('shaky.glsl', 'fragment.glsl');
 
+const changeyStuff = {
+    FRAMENUMBER: 0,
+    shakeRandom: vec2.create(),
+};
+
 const currentShader = shaderSet.shaky;
 main();
 
@@ -192,10 +197,19 @@ function draw(gl, programInfo, camera) {
     programInfo.camera = camera;
     
     const buffers = initBuffers(gl, positions, colors, indices);
-    drawScene(gl, programInfo, buffers);
+    drawScene(gl, programInfo, buffers, changeyStuff);
 
     requestAnimationFrame(() => draw(gl, programInfo, camera));
+
     cubeRotation += 0.01;
+    changeyStuff.FRAMENUMBER++;
+
+    if (changeyStuff.FRAMENUMBER % 15 === 0) {
+        vec2.set(changeyStuff.shakeRandom,
+            Math.random()*0.2,
+            Math.random()*0.2
+        );
+    }
 }
 
 function main() {

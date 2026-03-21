@@ -5,7 +5,7 @@ import Camera from "./camera.js";
  * @param {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} buffers 
  * @param {Camera} camera
  */
-function drawScene(gl, programInfo, buffers, camera) {
+function drawScene(gl, programInfo, buffers, changeyStuff) {
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
@@ -53,8 +53,7 @@ function drawScene(gl, programInfo, buffers, camera) {
 
     gl.uniform2f(
         gl.getUniformLocation(programInfo.program, "uRandomAddend"),
-        Math.random()*0.2,
-        Math.random()*0.2
+        ...changeyStuff.shakeRandom
     );
 
     {
