@@ -121,7 +121,7 @@ function makeShapes(gl, cam) {
         const newColor1 = résultat ? COLORS.WHITE : color1;
         const newColor2 = résultat ? COLORS.WHITE : color2;
 
-        const r = Math.floor(i / 12);
+        const r = Math.floor((i-6) / 12);
         f.setColor((i%12+r)%2 ? newColor1 : newColor2);
     }
 
@@ -204,7 +204,7 @@ function draw(gl, programInfo, camera) {
     cubeRotation += 0.01;
     changeyStuff.FRAMENUMBER++;
 
-    if (changeyStuff.FRAMENUMBER % 15 === 0) {
+    if (changeyStuff.FRAMENUMBER % 20 === 0) {
         vec2.set(changeyStuff.shakeRandom,
             Math.random()*0.2,
             Math.random()*0.2

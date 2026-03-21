@@ -13,7 +13,7 @@ float random (vec2 co) {
 }
 
 void main() {
-    const float a = 0.01; // 0.01 for cool style, 0.025 for kinda shaky, 0.05 for SHAKY
+    const float a = 0.05; // 0.01 for cool style, 0.025 for kinda shaky, 0.05 for SHAKY
 
     gl_Position = aVertexPosition + vec4(
         (random(aVertexPosition.xy + uRandomAddend + vec2(0,0)) - 0.5) * a,
