@@ -1,11 +1,11 @@
-import { initBuffers } from "./init-buffers.js";
-import { drawScene } from "./draw-scene.js";
 import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
 import { DrawnShape, Polygon, Quadrilateral } from "./shapez.js";
 import { DIRECTIONS, unNoise } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
 import { getCamMove, getMousePos } from "./input.js";
 import Camera from "./camera.js";
+import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
+import { Geometry, Material, Mesh, RenderObject } from "./geometry.js";
 
 
 
@@ -23,7 +23,8 @@ const changeyStuff = {
     shakeRandom: vec2.create(),
 };
 
-const currentShader = shaderSet.shaky;
+const currentShader = shaderSet.default;
+const shapes = [];
 main();
 
 
@@ -31,7 +32,7 @@ main();
 /**
  * @param {WebGLRenderingContext} gl The WebGL renderer.
  * @param {Camera} cam The camera.
- * @returns {Array<DrawnShape>}
+ * @returns {Array<RenderObject>}
  */
 function makeShapes(gl, cam) {
 
@@ -59,10 +60,25 @@ function makeShapes(gl, cam) {
     f4.setColor(COLORS.YELLOW);
     f5.setColor(COLORS.CYAN);
     f6.setColor(COLORS.MAGENTA);
-    const faces = [f1,f2,f3,f4,f5,f6];
+    const cubeFaces = [f1,f2,f3,f4,f5,f6];
+
+    const cubeGeoms = cubeFaces.map(f => new Geometry(
+        new Float32Array(f.getVertices()),
+        new Uint16Array(f.getIndexBuffer()),
+        new Float32Array(f.getColors()),
+        new Float32Array(f.getTextureBuffer())
+    ));
+    const cubeGeometry = Geometry.combineGeometries(...cubeGeoms);
+
+    const cubeMesh = new Mesh(gl, cubeGeometry);
+    const cubeMaterial = new Material({
+        texture: TEXTURES.PH,
+    });
+    const cubeRender = new RenderObject(cubeMesh, cubeMaterial);
 
 
     
+    const wheelFaces = [];
     
     const radius = 3;
     const numOfRegions = 12;
@@ -100,34 +116,28 @@ function makeShapes(gl, cam) {
             fromRad(outrad, -1);
             
             const poly = Polygon.fromPoints(...verts);
-            faces.push(poly);
+            wheelFaces.push(poly);
         }
     }
     
 
     
-    const color1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 1/3);
-    const color2 = COLORS.BROWN;
+    const wheelGeoms = wheelFaces.map(f => new Geometry(
+        new Float32Array(f.getVertices()),
+        new Uint16Array(f.getIndexBuffer()),
+        new Float32Array(f.getColors()),
+        // add texture entry later :sob:
+        new Float32Array(f.getTextureBuffer())
+    ));
+    const wheelGeometry = Geometry.combineGeometries(...wheelGeoms);
 
-    // hover highlight
-    for (let i = 6; i < faces.length; i++) {
-        const f = faces[i];
-
-        const mP = getMousePos();
-        const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
-
-        const résultat = f.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
-
-        const newColor1 = résultat ? COLORS.WHITE : color1;
-        const newColor2 = résultat ? COLORS.WHITE : color2;
-
-        const r = Math.floor((i-6) / 12);
-        f.setColor((i%12+r)%2 ? newColor1 : newColor2);
-    }
+    const wheelMesh = new Mesh(gl, wheelGeometry);
+    const wheelMaterial = new Material();
+    const wheelRender = new RenderObject(wheelMesh, wheelMaterial);
 
 
 
-    return faces;
+    return [cubeRender, wheelRender];
 }
 
 
@@ -136,7 +146,9 @@ function makeShapes(gl, cam) {
  * @param {object} programInfo
  * @param {Camera} camera The camera.
  */
-function draw(gl, programInfo, camera) {
+function draw(gl, programInfo) {
+
+    gl.useProgram(programInfo.program);
     
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -144,6 +156,8 @@ function draw(gl, programInfo, camera) {
 
 
     // ================================ CAMERA CHANGES ================================ //
+
+    const camera = programInfo.camera;
 
     const moveCommand = getCamMove();
 
@@ -175,31 +189,13 @@ function draw(gl, programInfo, camera) {
         return mat;
     });
 
-    // ================================ PROCESS SHAPES ================================ //
-    
-    const faces = makeShapes(gl, camera);
-
-    const positions = [];
-    const colors = [];
-    const indices = [];
-    let vertexOffset = 0;
-
-    for (const f of faces) {
-        positions.push(...f.getVertexBuffer());
-        colors.push(...f.getColorBuffer());
-        indices.push(...f.getIndexBuffer().map(i => i + vertexOffset));
-        vertexOffset += f.vertices.length;
-    }
-    
-
     // ================================ DRAW & LOOP ================================ //
-
-    programInfo.camera = camera;
     
-    const buffers = initBuffers(gl, positions, colors, indices);
-    drawScene(gl, programInfo, buffers, changeyStuff);
+    for (const s of shapes) s.draw(gl, programInfo, changeyStuff);
 
     requestAnimationFrame(() => draw(gl, programInfo, camera));
+
+    // ================================ END-OF-LOOP CHANGES ================================ //
 
     cubeRotation += 0.01;
     changeyStuff.FRAMENUMBER++;
@@ -232,16 +228,18 @@ function main() {
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+            textureCoord: gl.getAttribLocation(shaderProgram, "aTextureCoord"),
             vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
         },
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
             modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+            uSampler: gl.getUniformLocation(shaderProgram, "u_texture"),
         },
     }
 
     // ================================ CAMERA CAMERA CAMERA ================================ //
-
+    
     let fieldOfView = (45 * Math.PI) / 180; // in radians
     let zNear = 0.1;
     let zFar = 100.0;
@@ -251,6 +249,22 @@ function main() {
         zNear,
         zFar
     );
+    programInfo.camera = camera;
+    
+    // ================================ PREP ================================ //
 
-    draw(gl, programInfo, camera);
+    // load the textures
+    loadBasicTextures(gl);
+
+    const placeholdertexture = loadTexture(gl, 'faceholder.png');
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    TEXTURES.PH = placeholdertexture;
+
+
+
+    shapes.push(
+        ...makeShapes(gl, camera)
+    );
+
+    draw(gl, programInfo);
 }

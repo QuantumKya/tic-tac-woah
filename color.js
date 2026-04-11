@@ -11,9 +11,12 @@ class Color extends Array {
     get a() { return this[3]; }
     get rgb() { return [this.r, this.g, this.b]; }
     get rgba() { return [...this]; }
-
-    get rawColor() { return new Color(...this.rgb, 0); }
     
+    get rgbaInt() { return this.rgba.map(c=>Math.floor(c*255)); }
+    get rawColor() { return new Color(...this.rgb, 1.0); }
+
+    get Uint() { return new Uint8Array(this.rgbaInt); }
+    get Float32() { return new Float32Array(this.rgba); }
 
 
     // ================================ COLOR MIXING ================================ //

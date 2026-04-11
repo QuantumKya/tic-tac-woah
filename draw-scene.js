@@ -1,4 +1,5 @@
 import Camera from "./camera.js";
+import { TEXTURES } from "./textures.js";
 
 /**
  * @param {WebGLRenderingContext} gl 
@@ -33,6 +34,7 @@ function drawScene(gl, programInfo, buffers, changeyStuff) {
     // buffer into the vertexPosition attribute.
     setPositionAttribute(gl, buffers, programInfo);
     setColorAttribute(gl, buffers, programInfo);
+    setTextureAttribute(gl, buffers, programInfo);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
 
@@ -55,6 +57,10 @@ function drawScene(gl, programInfo, buffers, changeyStuff) {
         gl.getUniformLocation(programInfo.program, "uRandomAddend"),
         ...changeyStuff.shakeRandom
     );
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, TEXTURES.PH);
+    gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
 
     {
         const offset = 0;
@@ -100,6 +106,24 @@ function setColorAttribute(gl, buffers, programInfo) {
         offset,
     );
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+}
+
+function setTextureAttribute(gl, buffers, programInfo) {
+    const num = 2; // every coordinate composed of 2 values
+    const type = gl.FLOAT; // the data in the buffer is 32-bit float
+    const normalize = false; // don't normalize
+    const stride = 0; // how many bytes to get from one set to the next
+    const offset = 0; // how many bytes inside the buffer to start from
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.textures);
+    gl.vertexAttribPointer(
+        programInfo.attribLocations.textureCoord,
+        num,
+        type,
+        normalize,
+        stride,
+        offset,
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
 }
 
 export { drawScene };

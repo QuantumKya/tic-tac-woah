@@ -1,5 +1,6 @@
 import { avgArray, distanceToPlane, avgPoints, DIRECTIONS } from "./math_stuff.js";
 import { getColorBuffer, Color, COLORS } from "./color.js";
+import { TEXTURES } from "./textures.js";
 
 class Plane {
     constructor() {
@@ -88,6 +89,11 @@ class DrawnShape {
     constructor(...points) {
         this.vertices = points;
         this.color = COLORS.GRAY;
+        this.texture = TEXTURES.BLANK;
+    }
+
+    get centroid() {
+        return avgPoints(...this.vertices);
     }
 
     /**
@@ -97,16 +103,95 @@ class DrawnShape {
     setColor(clr) {
         this.color = clr;
     }
-
-    getVertexBuffer() {
-        return this.vertices.flatMap(v => [v[0], v[1], v[2]]);
+    
+    /**
+     * Set the shape's texture to use.
+     * Use TEXTURES.BLANK for using only color.
+     * @param {WebGLTexture} tex 
+     */
+    setTexture(tex) {
+        this.texture = tex ?? TEXTURES.MISSING;
     }
 
-    getColorBuffer() {
-        return getColorBuffer(...Array(this.vertices.length).fill(this.color));
+    /** @returns {Float32Array} */
+    getVertices() {
+        return new Float32Array(
+            this.vertices.flatMap(v => [...v])
+        );
     }
 
-    getIndexBuffer() {}
+    getColors() {
+        return new Float32Array(
+            this.vertices.flatMap(v => this.color.rgba)
+        );
+    }
+
+    getMatchingSquare() {
+        const kendra = this.centroid; // centroid POINT
+        const tangent1 = vec3.create(); vec3.subtract(tangent1, this.vertices[0], kendra);
+        const tangent2 = vec3.create(); vec3.subtract(tangent2, this.vertices[1], kendra);
+        const cross = vec3.create(); vec3.cross(cross, tangent1, tangent2);
+
+        const polyplane = Plane.fromNormalAndPoint(cross, kendra);
+        // fallback (cursed)
+        if (!polyplane) { return new Float32Array(this.vertices.flatMap((_,i) => [i%2, Math.floor(i/2) % 2])); }
+
+        
+        // orthovectors
+        let nonbasis = -1;
+        const dirs = [DIRECTIONS.X, DIRECTIONS.Y, DIRECTIONS.Z].map((d, i) => {
+            // finding the closest direction to the normal vector and NOT using it
+            //     ...because doing so may lead to undefined or otherwise spooky behavior
+            const a = vec3.angle(d, cross);
+            if (a < Math.PI/4) { nonbasis = i; return d; }
+
+            // casting down to plane to get some bases
+            const centerd = vec3.create(); vec3.add(centerd, kendra, d);
+            const projectedd = projectPointOnPlane(centerd, polyplane);
+            const basisd = vec3.create(); vec3.subtract(basisd, projectedd, kendra);
+            
+            return basisd;
+        });
+        if (nonbasis === -1) dirs[1] = DIRECTIONS.Y; // if all of the vectors are fine-ish, just use the XZ plane.
+        const restrictedArr = [0, 1, 2].filter(i !== nonbasis); // filtering to get rid of the unused basis.
+
+
+        
+        let minA = Infinity; let maxA = -Infinity;
+        let minB = Infinity; let maxB = -Infinity;
+        for (const v of this.vertices) {
+            const projectee = projectPointOnPlane(v, polyplane);
+
+            const relativeVec = getVecInBasis(projectee, ...dirs);
+            restrictedArr.forEach((i, c) => {
+                if (c) {
+                    minB = Math.min(minB, relativeVec[i]);
+                    maxB = Math.max(maxB, relativeVec[i]);
+                }
+                else {
+                    minA = Math.min(minA, relativeVec[i]);
+                    maxA = Math.max(maxA, relativeVec[i]);
+                }
+            });
+        }
+
+        const diffA = maxA - minA;
+        const diffB = maxB - minB;
+        // uses the average here as not to be too big, but can use anything else
+        const squareSize = (diffA + diffB) / 2;
+
+        const boundBasisA = vec3.create(); vec3.scale(boundBasisA, dirs[restrictedArr[0]], squareSize);
+        const boundBasisB = vec3.create(); vec3.scale(boundBasisB, dirs[restrictedArr[1]], squareSize);
+
+        const diag = vec3.create(); vec3.add(diag, boundBasisA, boundBasisB);
+        const corner = vec3.create(); vec3.subtract(corner, kendra, diag);
+
+        const sq = Quadrilateral.fromSides(corner,
+            vec3.scale(vec3.create(), boundBasisA, 2),
+            vec3.scale(vec3.create(), boundBasisB, 2)
+        );
+        return sq;
+    }
 }
 
 /**
@@ -125,6 +210,27 @@ function projectPointOnPlane(pnt, plane) {
     const projectum = vec3.create();
     vec3.subtract(projectum, pnt, proj);
     return projectum;
+}
+
+/**
+ * 
+ * @param {vec3} v The vector to represent in the given basis.
+ * @param {vec3} e1 Basis vector in objective coordinates (will be subtracted from origin vector).
+ * @param {vec3} e2 Basis vector in objective coordinates (will be subtracted from origin vector).
+ * @param {vec3} e3 Basis vector in objective coordinates (will be subtracted from origin vector).
+ */
+function getVecInBasis(v, e1, e2, e3) {
+    const basis = mat3.create();
+    mat3.set(basis,
+        e1[0], e2[0], e3[0],
+        e1[1], e2[1], e3[1],
+        e1[2], e2[2], e3[2],
+    );
+
+    const invBasis = mat3.create(); mat3.invert(invBasis, basis);
+    const result = vec3.create(); vec3.transformMat3(result, v, invBasis);
+
+    return result;
 }
 
 class Triangle extends DrawnShape {
@@ -210,6 +316,7 @@ class Triangle extends DrawnShape {
 class Polygon extends DrawnShape {
     constructor(...points) {
         super(...points);
+        this.indices = this.constituentTriangleIndices;
     }
 
     /**
@@ -222,10 +329,6 @@ class Polygon extends DrawnShape {
         
         if (poly.constituentTriangles.every(a=>!a)) return null;
         return poly;
-    }
-
-    get centroid() {
-        return avgPoints(...this.vertices);
     }
 
     /** @returns {Array<Triangle>} */
@@ -262,7 +365,7 @@ class Polygon extends DrawnShape {
     }
 
     getIndexBuffer() {
-        return this.constituentTriangleIndices.flat();
+        return new Uint16Array(...this.indices);
     }
 }
 
@@ -311,6 +414,16 @@ class Quadrilateral extends Polygon {
 
     getIndexBuffer() {
         return [0, 1, 2, 0, 2, 3];
+    }
+
+    getTextureBuffer() {
+        const quadUV = new Float32Array([
+            0, 0,
+            1, 0,
+            1, 1,
+            0, 1
+        ]);
+        return quadUV;
     }
 }
 
