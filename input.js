@@ -23,7 +23,6 @@ let scrollDelta = 0;
 const getCamMove = () => {
     const mouseElapsed = vec2.create();
     vec2.subtract(mouseElapsed, getMousePos(), lastMouse);
-    console.log(mouseElapsed, rightMousing);
 
     const scrl = scrollDelta;
 

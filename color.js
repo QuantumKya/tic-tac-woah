@@ -92,7 +92,7 @@ class Color extends Array {
 const COLORS = {
     WHITE: new Color(1.0, 1.0, 1.0, 1.0),
     GRAY: new Color(0.5, 0.5, 0.5, 1.0),
-    BLACK: new Color(0.0, 0.0, 0.0, 0.0),
+    BLACK: new Color(0.0, 0.0, 0.0, 1.0),
 
     RED: new Color(1.0, 0.0, 0.0, 1.0),
     GREEN: new Color(0.0, 1.0, 0.0, 1.0),

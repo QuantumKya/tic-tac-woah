@@ -1,17 +1,17 @@
 import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
-import { DrawnShape, Polygon, Quadrilateral } from "./shapez.js";
+import { Polygon, Quadrilateral } from "./shapez.js";
 import { DIRECTIONS, unNoise } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
 import { getCamMove, getMousePos } from "./input.js";
 import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
-import { Geometry, Material, Mesh, RenderObject } from "./geometry.js";
+import { Geometry, Material, RenderObject } from "./geometry.js";
 
 
 
 // ================================ STUFF THAT CHANGES ================================ //
 let cubeRotation = 0.0;
-let cameraRho = 6.0;
+let cameraRho = 3.0;
 let cameraTheta = 0;
 let cameraPhi = Math.PI / 2;
 
@@ -24,7 +24,8 @@ const changeyStuff = {
 };
 
 const currentShader = shaderSet.default;
-const shapes = [];
+const shapes = {};
+const renderers = {};
 main();
 
 
@@ -36,7 +37,7 @@ main();
  */
 function makeShapes(gl, cam) {
 
-    const cubeRadius = 10;
+    const cubeRadius = 5;
     const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
     const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, cubeRadius*2);
     const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, cubeRadius*2);
@@ -70,17 +71,22 @@ function makeShapes(gl, cam) {
     ));
     const cubeGeometry = Geometry.combineGeometries(...cubeGeoms);
 
-    const cubeMesh = new Mesh(gl, cubeGeometry);
     const cubeMaterial = new Material({
-        texture: TEXTURES.PH,
+        color: COLORS.WHITE,
+        texture: TEXTURES.ITSFINALLYMINISHED
     });
-    const cubeRender = new RenderObject(cubeMesh, cubeMaterial);
+    const cubeRender = new RenderObject(cubeGeometry, cubeMaterial);
 
 
-    
+
     const wheelFaces = [];
+    const wheelMaterial = new Material({
+        color: COLORS.WHITE,
+        texture: TEXTURES.BLANK
+    });
+    const wheelRenderers = [];
     
-    const radius = 3;
+    const radius = 2;
     const numOfRegions = 12;
     const per = 4;
 
@@ -88,7 +94,10 @@ function makeShapes(gl, cam) {
     const rowrad = radius/(rows+1);
 
     const center = vec3.fromValues(0, -1, 0);
-    
+
+    const brown1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 0.05);
+    const brown2 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 0.35);
+
     for (let r = 1; r <= rows; r++) {
         const inrad = r*rowrad;
         const outrad = (r+1)*rowrad;
@@ -114,30 +123,35 @@ function makeShapes(gl, cam) {
 
             fromRad(inrad, 1);
             fromRad(outrad, -1);
+
+
+
+            const light = (r & 1) ^ (n & 1);
             
             const poly = Polygon.fromPoints(...verts);
+            poly.setColor(light ? brown1 : brown2);
+
+            const geom = new Geometry(
+                new Float32Array(poly.getVertices()),
+                new Uint16Array(poly.getIndexBuffer()),
+                new Float32Array(poly.getColors()),
+                new Float32Array(poly.getTextureBuffer())
+            );
+
             wheelFaces.push(poly);
+            wheelRenderers.push(new RenderObject(geom, wheelMaterial));
         }
     }
-    
-
-    
-    const wheelGeoms = wheelFaces.map(f => new Geometry(
-        new Float32Array(f.getVertices()),
-        new Uint16Array(f.getIndexBuffer()),
-        new Float32Array(f.getColors()),
-        // add texture entry later :sob:
-        new Float32Array(f.getTextureBuffer())
-    ));
-    const wheelGeometry = Geometry.combineGeometries(...wheelGeoms);
-
-    const wheelMesh = new Mesh(gl, wheelGeometry);
-    const wheelMaterial = new Material();
-    const wheelRender = new RenderObject(wheelMesh, wheelMaterial);
 
 
 
-    return [cubeRender, wheelRender];
+    cubeRender.init(gl);
+    wheelRenderers.forEach(wr => wr.init(gl));
+
+    shapes.cube = cubeFaces;
+    renderers.cube = cubeRender;
+    shapes.annulus = wheelFaces;
+    renderers.annulus = wheelRenderers;
 }
 
 
@@ -151,7 +165,10 @@ function draw(gl, programInfo) {
     gl.useProgram(programInfo.program);
     
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clearDepth(1.0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 
 
@@ -179,7 +196,6 @@ function draw(gl, programInfo) {
 
     [camX, camY, camZ] = unNoise(camX, camY, camZ);
 
-    console.log(camX, camY, camZ);
     camera.setPosition(camX, camY, camZ);
     camera.setTargetPosition(vec3.fromValues(0,0,0));
 
@@ -189,9 +205,25 @@ function draw(gl, programInfo) {
         return mat;
     });
 
+    // ================================ CHANGES TO SHAPES ================================ //
+
+    for (let i = 0; i < shapes.annulus.length; i++) {
+        const f = shapes.annulus[i];
+
+        const mP = getMousePos();
+        const { origin: rayOrigin, dir: rayDir } = camera.getRaycastFromMouse(mP);
+
+        const résultat = f.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
+
+        const thisclr = f.color;
+        
+        renderers.annulus[i].setMaterialColor(résultat ? thisclr.map(a=>1/a) : COLORS.WHITE);
+    }
+
     // ================================ DRAW & LOOP ================================ //
     
-    for (const s of shapes) s.draw(gl, programInfo, changeyStuff);
+    renderers.cube.draw(gl, programInfo, changeyStuff);
+    for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
 
     requestAnimationFrame(() => draw(gl, programInfo, camera));
 
@@ -223,7 +255,9 @@ function main() {
 
     const vsSource = currentShader.vsSource;
     const fsSource = currentShader.fsSource;
+    console.log(vsSource, fsSource);
     const shaderProgram = initShader(gl, vsSource, fsSource);
+    console.log(shaderProgram);
     const programInfo = {
         program: shaderProgram,
         attribLocations: {
@@ -235,6 +269,7 @@ function main() {
             projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
             modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
             uSampler: gl.getUniformLocation(shaderProgram, "u_texture"),
+            uColor: gl.getUniformLocation(shaderProgram, "u_color"),
         },
     }
 
@@ -256,15 +291,14 @@ function main() {
     // load the textures
     loadBasicTextures(gl);
 
-    const placeholdertexture = loadTexture(gl, 'faceholder.png');
+    TEXTURES.PH = loadTexture(gl, 'faceholder.png');
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    TEXTURES.PH = placeholdertexture;
+    TEXTURES.ITSFINALLYMINISHED = loadTexture(gl, 'minish.png');
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
 
 
-    shapes.push(
-        ...makeShapes(gl, camera)
-    );
+    makeShapes(gl, camera);
 
     draw(gl, programInfo);
 }

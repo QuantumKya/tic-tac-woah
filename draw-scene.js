@@ -7,16 +7,9 @@ import { TEXTURES } from "./textures.js";
  * @param {Camera} camera
  */
 function drawScene(gl, programInfo, buffers, changeyStuff) {
-    gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
-    gl.clearDepth(1.0); // Clear everything
+    // The caller is responsible for clearing the canvas once per frame.
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
     gl.depthFunc(gl.LEQUAL); // Near things obscure far things
-
-    // Clear the canvas before we start drawing on it.
-
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-
 
     // time for the view matrix!!!
 
@@ -58,9 +51,10 @@ function drawScene(gl, programInfo, buffers, changeyStuff) {
         ...changeyStuff.shakeRandom
     );
 
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, TEXTURES.PH);
+    // texture should be bound by materials earlier.
     gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     {
         const offset = 0;

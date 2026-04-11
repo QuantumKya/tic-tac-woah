@@ -106,7 +106,7 @@ class DrawnShape {
     
     /**
      * Set the shape's texture to use.
-     * Use TEXTURES.BLANK for using only color.
+     * Use TEXTURES.BLANK when using only color.
      * @param {WebGLTexture} tex 
      */
     setTexture(tex) {
@@ -128,9 +128,9 @@ class DrawnShape {
 
     getMatchingSquare() {
         const kendra = this.centroid; // centroid POINT
-        const tangent1 = vec3.create(); vec3.subtract(tangent1, this.vertices[0], kendra);
-        const tangent2 = vec3.create(); vec3.subtract(tangent2, this.vertices[1], kendra);
-        const cross = vec3.create(); vec3.cross(cross, tangent1, tangent2);
+        const tangent1 = vec3.subtract(vec3.create(), this.vertices[0], kendra);
+        const tangent2 = vec3.subtract(vec3.create(), this.vertices[1], kendra);
+        const cross = vec3.cross(vec3.create(), tangent1, tangent2);
 
         const polyplane = Plane.fromNormalAndPoint(cross, kendra);
         // fallback (cursed)
@@ -147,8 +147,8 @@ class DrawnShape {
 
             // casting down to plane to get some bases
             const centerd = vec3.create(); vec3.add(centerd, kendra, d);
-            const projectedd = projectPointOnPlane(centerd, polyplane);
-            const basisd = vec3.create(); vec3.subtract(basisd, projectedd, kendra);
+            const basisd = projectPointOnPlane(centerd, polyplane);
+            vec3.subtract(basisd, basisd, kendra);
             
             return basisd;
         });
@@ -163,16 +163,11 @@ class DrawnShape {
             const projectee = projectPointOnPlane(v, polyplane);
 
             const relativeVec = getVecInBasis(projectee, ...dirs);
-            restrictedArr.forEach((i, c) => {
-                if (c) {
-                    minB = Math.min(minB, relativeVec[i]);
-                    maxB = Math.max(maxB, relativeVec[i]);
-                }
-                else {
-                    minA = Math.min(minA, relativeVec[i]);
-                    maxA = Math.max(maxA, relativeVec[i]);
-                }
-            });
+
+            const c0 = relativeVec[restrictedArr[0]];
+            const c1 = relativeVec[restrictedArr[1]];
+            minB = Math.min(minB, c0); maxB = Math.max(maxB, c1);
+            minA = Math.min(minA, c0); maxA = Math.max(maxA, c1);
         }
 
         const diffA = maxA - minA;
@@ -191,6 +186,52 @@ class DrawnShape {
             vec3.scale(vec3.create(), boundBasisB, 2)
         );
         return sq;
+    }
+
+    getTextureBuffer() {
+        const kendra = this.centroid; // centroid POINT
+        const tangent1 = vec3.subtract(vec3.create(), this.vertices[0], kendra);
+        const tangent2 = vec3.subtract(vec3.create(), this.vertices[1], kendra);
+        const cross = vec3.cross(vec3.create(), tangent1, tangent2);
+
+        const polyplane = Plane.fromNormalAndPoint(cross, kendra);
+        if (!polyplane) { // fallback (cursed)
+            return new Float32Array(this.vertices.flatMap((_,i) => [i%2, Math.floor(i/2) % 2]));
+        }
+
+        // Create two orthogonal vectors in the plane
+        const tangent = vec3.create();
+        vec3.subtract(tangent, this.vertices[1], this.vertices[0]);
+        vec3.normalize(tangent, tangent);
+
+        const bitangent = vec3.create();
+        vec3.cross(bitangent, polyplane.normal, tangent);
+
+        // Project vertices onto the plane and compute UV
+        const uvs = [];
+        let minU = Infinity, maxU = -Infinity;
+        let minV = Infinity, maxV = -Infinity;
+        const projectedUVs = [];
+
+        for (const vert of this.vertices) {
+            const fromAnchor = vec3.create(); vec3.subtract(fromAnchor, vert, polyplane.anchor);
+            const u = vec3.dot(fromAnchor, tangent);
+            const v = vec3.dot(fromAnchor, bitangent);
+            
+            projectedUVs.push({ u, v });
+            minU = Math.min(minU, u); maxU = Math.max(maxU, u);
+            minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+        }
+
+        // Normalize to [0, 1]
+        const rangeU = maxU - minU || 1;
+        const rangeV = maxV - minV || 1;
+
+        for (const { u, v } of projectedUVs) {
+            uvs.push((u - minU) / rangeU, (v - minV) / rangeV);
+        }
+
+        return new Float32Array(uvs);
     }
 }
 
@@ -351,7 +392,6 @@ class Polygon extends DrawnShape {
         let j = this.vertices.length-1;
 
         let k = 1;
-
         while (j > i+1) {
             tris.push(k%2 ? [i, j, ++i] : [j, i, --j]);
             k++;
@@ -365,7 +405,7 @@ class Polygon extends DrawnShape {
     }
 
     getIndexBuffer() {
-        return new Uint16Array(...this.indices);
+        return new Uint16Array(this.indices.flat());
     }
 }
 

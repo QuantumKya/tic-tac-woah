@@ -85,17 +85,16 @@ function loadBasicTextures(gl) {
         0,
         gl.RGBA,
         gl.UNSIGNED_BYTE,
-        pixel,
+        pixel
     );
 
     TEXTURES.MISSING = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, TEXTURES.MISSING);
 
     const magentablack = new Uint8Array([
-        ...COLORS.MAGENTA.Uint, ...COLORS.BLACK.Uint,
-        ...COLORS.BLACK.Uint, ...COLORS.MAGENTA.Uint
+        ...COLORS.MAGENTA.rgbaInt, ...COLORS.BLACK.rgbaInt,
+        ...COLORS.BLACK.rgbaInt, ...COLORS.MAGENTA.rgbaInt
     ]);
-    console.log(magentablack);
     gl.texImage2D(
         gl.TEXTURE_2D,
         level,
@@ -106,6 +105,8 @@ function loadBasicTextures(gl) {
         gl.UNSIGNED_BYTE,
         magentablack,
     );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 }
 
 export {

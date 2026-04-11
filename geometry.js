@@ -1,26 +1,10 @@
-import { Color } from "./color.js";
+import { Color, COLORS } from "./color.js";
 import { drawScene } from "./draw-scene.js";
 import { initBuffers } from "./init-buffers.js";
-
-class Mesh {
-    constructor(gl, geometry) {
-        this.buffers = initBuffers(
-            gl,
-            geometry.positions,
-            geometry.colors,
-            geometry.indices,
-            geometry.texcoords
-        );
-    }
-
-    draw(gl, programInfo, ...args) {
-        drawScene(gl, programInfo, this.buffers, ...args);
-    }
-}
+import { TEXTURES } from "./textures.js";
 
 class Material {
     /**
-     * 
      * @param {{color: Color, texture: WebGLTexture}} param0 
      */
     constructor({ color = null, texture = null } = {}) {
@@ -29,27 +13,48 @@ class Material {
     }
 
     apply(gl, programInfo) {
-        if (this.texture) {
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, this.texture);
-            gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
-        }
+        const tex = this.texture ?? TEXTURES.MISSING;
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
 
-        if (this.color) {
-            gl.uniform4fv(programInfo.uniformLocations.uColor, ...this.color.Float32);
-        }
+        const clr = this.color ?? COLORS.WHITE;
+        gl.uniform4fv(programInfo.uniformLocations.uColor, clr.Float32);
     }
 }
 
 class RenderObject {
-    constructor(mesh, material) {
-        this.mesh = mesh;
+    /** @param {Geometry} geom @param {Material} material  */
+    constructor(geom, material) {
+        this.geom = geom;
         this.material = material;
+    }
+
+    init(gl) {
+        this.geom.makeBuffers(gl);
     }
 
     draw(gl, programInfo, ...args) {
         this.material.apply(gl, programInfo);
-        this.mesh.draw(gl, programInfo, ...args);
+        this.geom.draw(gl, programInfo, ...args);
+    }
+
+    setMaterial(material) { this.material = material; }
+    setGeometry(geom) { this.geometry = geom; }
+
+    setMaterialColor(color) {
+        const newMat = new Material({
+            color: color,
+            texture: this.material.texture
+        });
+        this.setMaterial(newMat);
+    }
+    setMaterialTexture(text) {
+        const newMat = new Material({
+            color: this.material.color,
+            texture: text
+        });
+        this.setMaterial(newMat);
     }
 }
 
@@ -65,6 +70,20 @@ class Geometry {
         this.indices = indices;
         this.colors = colors;
         this.texcoords = texcoords;
+    }
+
+    makeBuffers(gl) {
+        this.buffers = initBuffers(
+            gl,
+            this.positions,
+            this.colors,
+            this.indices,
+            this.texcoords
+        );
+    }
+
+    draw(gl, programInfo, ...args) {
+        drawScene(gl, programInfo, this.buffers, ...args);
     }
 
     /** @param {...Geometry} geoms  */
@@ -102,6 +121,5 @@ class Geometry {
 export {
     Geometry,
     Material,
-    Mesh,
     RenderObject
 }
