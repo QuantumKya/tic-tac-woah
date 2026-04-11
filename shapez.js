@@ -1,5 +1,5 @@
-import { avgArray, distanceToPlane, avgPoints, DIRECTIONS } from "./math_stuff.js";
-import { getColorBuffer, Color, COLORS } from "./color.js";
+import { avgPoints, DIRECTIONS } from "./math_stuff.js";
+import { Color, COLORS } from "./color.js";
 import { TEXTURES } from "./textures.js";
 
 class Plane {

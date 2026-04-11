@@ -1,5 +1,4 @@
 import Camera from "./camera.js";
-import { TEXTURES } from "./textures.js";
 
 /**
  * @param {WebGLRenderingContext} gl 
