@@ -1,6 +1,8 @@
 import { avgPoints, DIRECTIONS } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
 import { TEXTURES } from "./textures.js";
+import { getMousePos } from "./input.js";
+import Camera from "./camera.js";
 
 class Plane {
     constructor() {
@@ -406,6 +408,15 @@ class Polygon extends DrawnShape {
 
     getIndexBuffer() {
         return new Uint16Array(this.indices.flat());
+    }
+
+    /** @param {Camera} cam  */
+    isHoveredUpon(cam) {
+        const mP = getMousePos();
+        const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
+
+        const résultat = this.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
+        return résultat;
     }
 }
 

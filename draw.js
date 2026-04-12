@@ -72,7 +72,7 @@ function makeShapes(gl, cam) {
     const cubeGeometry = Geometry.combineGeometries(...cubeGeoms);
 
     const cubeMaterial = new Material({
-        color: COLORS.WHITE,
+        color: COLORS.NONE,
         texture: TEXTURES.ITSFINALLYMINISHED
     });
     const cubeRender = new RenderObject(cubeGeometry, cubeMaterial);
@@ -81,7 +81,7 @@ function makeShapes(gl, cam) {
 
     const wheelFaces = [];
     const wheelMaterial = new Material({
-        color: COLORS.WHITE,
+        color: COLORS.NONE,
         texture: TEXTURES.BLANK
     });
     const wheelRenderers = [];
@@ -209,15 +209,8 @@ function draw(gl, programInfo) {
 
     for (let i = 0; i < shapes.annulus.length; i++) {
         const f = shapes.annulus[i];
-
-        const mP = getMousePos();
-        const { origin: rayOrigin, dir: rayDir } = camera.getRaycastFromMouse(mP);
-
-        const résultat = f.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
-
-        const thisclr = f.color;
         
-        renderers.annulus[i].setMaterialColor(résultat ? thisclr.map(a=>1/a) : COLORS.WHITE);
+        renderers.annulus[i].setMaterialColor(f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE);
     }
 
     // ================================ DRAW & LOOP ================================ //

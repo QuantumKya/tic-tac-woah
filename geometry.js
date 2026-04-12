@@ -8,18 +8,16 @@ class Material {
      * @param {{color: Color, texture: WebGLTexture}} param0 
      */
     constructor({ color = null, texture = null } = {}) {
-        this.color = color;
-        this.texture = texture;
+        this.color = color ?? COLORS.NONE;
+        this.texture = texture ?? TEXTURES.MISSING;
     }
 
     apply(gl, programInfo) {
-        const tex = this.texture ?? TEXTURES.MISSING;
         gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
         gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
 
-        const clr = this.color ?? COLORS.WHITE;
-        gl.uniform4fv(programInfo.uniformLocations.uColor, clr.Float32);
+        gl.uniform4fv(programInfo.uniformLocations.uColor, this.color.Float32);
     }
 }
 
