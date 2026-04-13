@@ -42,7 +42,7 @@ main();
  */
 function makeShapes(gl, cam) {
 
-    const cubeRadius = 5;
+    const cubeRadius = 7.5;
     const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
     const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, cubeRadius*2);
     const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, cubeRadius*2);
@@ -213,6 +213,7 @@ function draw(gl, programInfo) {
     
     renderers.cube.draw(gl, programInfo, changeyStuff);
     for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
+    for (const r of renderers.xs) r.draw(gl, programInfo, changeyStuff);
 
     requestAnimationFrame(() => draw(gl, programInfo, camera));
 
@@ -288,21 +289,21 @@ function main() {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
     canvas.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+
         const anfaces = shapes.annulus;
         const anrenders = renderers.annulus;
         if (!anfaces || !anrenders) return;
 
         for (let i = 0; i < anfaces.length; i++) {
             const f = anfaces[i];
-            const r = anrenders[i];
-
             if (!f.isHoveredUpon(camera)) continue;
 
             const xshape = f.getMatchingSquare();
             xshape.setColor(COLORS.WHITE);
 
             const norm = xshape.getPlane().normal;
-            const offset = vec3.scale(vec3.create(), norm, 0.25);
+            const offset = vec3.scale(vec3.create(), norm, -0.01);
             for (const p of xshape.vertices) vec3.add(p, p, offset); // make it a little higher up
             
 
@@ -310,8 +311,9 @@ function main() {
             const xmaterial = new Material({
                 texture: TEXTURES.X
             });
-
             const xrender = new RenderObject(xgeom, xmaterial);
+            xrender.init(gl);
+
             shapes.xs.push(xshape);
             renderers.xs.push(xrender);
 

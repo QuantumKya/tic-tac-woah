@@ -28,18 +28,23 @@ class RenderObject {
         this.material = material;
     }
 
+    /** @param {WebGLRenderingContext} gl */
     init(gl) {
         this.geom.makeBuffers(gl);
     }
 
+    /** @param {WebGLRenderingContext} gl @param {import("./draw.js").ProgramInfo} programInfo @param {...*} args  */
     draw(gl, programInfo, ...args) {
         this.material.apply(gl, programInfo);
         this.geom.draw(gl, programInfo, ...args);
     }
 
+    /** @param {Material} material */
     setMaterial(material) { this.material = material; }
+    /** @param {Geometry} geom */
     setGeometry(geom) { this.geometry = geom; }
 
+    /** @param {Color} color */
     setMaterialColor(color) {
         const newMat = new Material({
             color: color,
@@ -47,6 +52,8 @@ class RenderObject {
         });
         this.setMaterial(newMat);
     }
+    
+    /** @param {WebGLTexture} text */
     setMaterialTexture(text) {
         const newMat = new Material({
             color: this.material.color,
@@ -84,6 +91,7 @@ class Geometry {
         );
     }
 
+    /** @param {WebGLRenderingContext} gl */
     makeBuffers(gl) {
         this.buffers = initBuffers(
             gl,
@@ -94,6 +102,7 @@ class Geometry {
         );
     }
 
+    /** @param {WebGLRenderingContext} gl @param {import("./draw.js").ProgramInfo} programInfo @param {...*} args  */
     draw(gl, programInfo, ...args) {
         drawScene(gl, programInfo, this.buffers, ...args);
     }

@@ -147,25 +147,16 @@ class DrawnShape {
         // fallback (cursed)
         if (!polyplane) { return new Float32Array(this.vertices.flatMap((_,i) => [i%2, Math.floor(i/2) % 2])); }
 
-        
         // orthovectors
-        let nonbasis = -1;
-        const norm = polyplane.normal;
-        const dirs = [DIRECTIONS.X, DIRECTIONS.Y, DIRECTIONS.Z].map((d, i) => {
-            // finding the closest direction to the normal vector and NOT using it
-            //     ...because doing so may lead to undefined or otherwise spooky behavior
-            const a = vec3.angle(d, norm);
-            if (a < Math.PI/4) { nonbasis = i; return d; }
+        const tangent1 = vec3.create();
+        vec3.subtract(tangent1, this.vertices[1], this.vertices[0]);
+        vec3.normalize(tangent1, tangent1);
 
-            // casting down to plane to get some bases
-            const centerd = vec3.create(); vec3.add(centerd, this.centroid, d);
-            const basisd = projectPointOnPlane(centerd, polyplane);
-            vec3.subtract(basisd, basisd, this.centroid);
-            
-            return basisd;
-        });
-        if (nonbasis === -1) dirs[1] = DIRECTIONS.Y; // if all of the vectors are fine-ish, just use the XZ plane.
-        const restrictedArr = [0, 1, 2].filter(i => i !== nonbasis); // filtering to get rid of the unused basis.
+        const tangent2 = vec3.create();
+        vec3.cross(tangent2, polyplane.normal, tangent1);
+        vec3.normalize(tangent2, tangent2);
+        
+        const norm = polyplane.normal;
 
 
         
@@ -174,21 +165,21 @@ class DrawnShape {
         for (const v of this.vertices) {
             const projectee = projectPointOnPlane(v, polyplane);
 
-            const relativeVec = getVecInBasis(projectee, ...dirs);
+            const relativeVec = getVecInBasis(projectee, tangent1, tangent2, norm);
 
-            const c0 = relativeVec[restrictedArr[0]];
-            const c1 = relativeVec[restrictedArr[1]];
-            minB = Math.min(minB, c0); maxB = Math.max(maxB, c1);
-            minA = Math.min(minA, c0); maxA = Math.max(maxA, c1);
+            const c0 = relativeVec[0];
+            const c1 = relativeVec[1];
+            minB = Math.min(minB, c0); maxB = Math.max(maxB, c0);
+            minA = Math.min(minA, c1); maxA = Math.max(maxA, c1);
         }
 
         const diffA = maxA - minA;
         const diffB = maxB - minB;
         // uses the average here as not to be too big, but can use anything else
-        const squareSize = (diffA + diffB) / 2;
+        const squareSize = (diffA + diffB) / 2 / 3.5;
 
-        const boundBasisA = vec3.create(); vec3.scale(boundBasisA, dirs[restrictedArr[0]], squareSize);
-        const boundBasisB = vec3.create(); vec3.scale(boundBasisB, dirs[restrictedArr[1]], squareSize);
+        const boundBasisA = vec3.create(); vec3.scale(boundBasisA, tangent1, squareSize);
+        const boundBasisB = vec3.create(); vec3.scale(boundBasisB, tangent2, squareSize);
 
         const diag = vec3.create(); vec3.add(diag, boundBasisA, boundBasisB);
         const corner = vec3.create(); vec3.subtract(corner, this.centroid, diag);
