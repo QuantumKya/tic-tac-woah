@@ -1,4 +1,4 @@
-import { avgPoints, DIRECTIONS } from "./math_stuff.js";
+import { avgPoints, DIRECTIONS, getVecInBasis, projectPointOnPlane } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
 import { TEXTURES } from "./textures.js";
 import { getMousePos } from "./input.js";
@@ -94,6 +94,7 @@ class DrawnShape {
         this.texture = TEXTURES.BLANK;
     }
 
+    /** @returns {vec3} */
     get centroid() {
         return avgPoints(...this.vertices);
     }
@@ -103,7 +104,7 @@ class DrawnShape {
      * @param {Color} clr 
      */
     setColor(clr) {
-        this.color = clr;
+        this.color = clr ?? COLORS.NONE;
     }
     
     /**
@@ -122,40 +123,49 @@ class DrawnShape {
         );
     }
 
+    /** @returns {Float32Array} */
     getColors() {
         return new Float32Array(
             this.vertices.flatMap(v => this.color.rgba)
         );
     }
 
-    getMatchingSquare() {
+    /** @returns {Plane} */
+    getPlane() {
         const kendra = this.centroid; // centroid POINT
         const tangent1 = vec3.subtract(vec3.create(), this.vertices[0], kendra);
         const tangent2 = vec3.subtract(vec3.create(), this.vertices[1], kendra);
         const cross = vec3.cross(vec3.create(), tangent1, tangent2);
 
         const polyplane = Plane.fromNormalAndPoint(cross, kendra);
+        return polyplane;
+    }
+
+    /** @returns {Quadrilateral} */
+    getMatchingSquare() {
+        const polyplane = this.getPlane();
         // fallback (cursed)
         if (!polyplane) { return new Float32Array(this.vertices.flatMap((_,i) => [i%2, Math.floor(i/2) % 2])); }
 
         
         // orthovectors
         let nonbasis = -1;
+        const norm = polyplane.normal;
         const dirs = [DIRECTIONS.X, DIRECTIONS.Y, DIRECTIONS.Z].map((d, i) => {
             // finding the closest direction to the normal vector and NOT using it
             //     ...because doing so may lead to undefined or otherwise spooky behavior
-            const a = vec3.angle(d, cross);
+            const a = vec3.angle(d, norm);
             if (a < Math.PI/4) { nonbasis = i; return d; }
 
             // casting down to plane to get some bases
-            const centerd = vec3.create(); vec3.add(centerd, kendra, d);
+            const centerd = vec3.create(); vec3.add(centerd, this.centroid, d);
             const basisd = projectPointOnPlane(centerd, polyplane);
-            vec3.subtract(basisd, basisd, kendra);
+            vec3.subtract(basisd, basisd, this.centroid);
             
             return basisd;
         });
         if (nonbasis === -1) dirs[1] = DIRECTIONS.Y; // if all of the vectors are fine-ish, just use the XZ plane.
-        const restrictedArr = [0, 1, 2].filter(i !== nonbasis); // filtering to get rid of the unused basis.
+        const restrictedArr = [0, 1, 2].filter(i => i !== nonbasis); // filtering to get rid of the unused basis.
 
 
         
@@ -181,7 +191,7 @@ class DrawnShape {
         const boundBasisB = vec3.create(); vec3.scale(boundBasisB, dirs[restrictedArr[1]], squareSize);
 
         const diag = vec3.create(); vec3.add(diag, boundBasisA, boundBasisB);
-        const corner = vec3.create(); vec3.subtract(corner, kendra, diag);
+        const corner = vec3.create(); vec3.subtract(corner, this.centroid, diag);
 
         const sq = Quadrilateral.fromSides(corner,
             vec3.scale(vec3.create(), boundBasisA, 2),
@@ -190,6 +200,7 @@ class DrawnShape {
         return sq;
     }
 
+    /** @returns {Float32Array} */
     getTextureBuffer() {
         const kendra = this.centroid; // centroid POINT
         const tangent1 = vec3.subtract(vec3.create(), this.vertices[0], kendra);
@@ -237,46 +248,75 @@ class DrawnShape {
     }
 }
 
-/**
- * Project a 3D point onto a given plane.
- * @param {vec3} pnt Point to project.
- * @param {Plane} plane Plane to project onto.
- * @returns {vec3} Projected point.
- */
-function projectPointOnPlane(pnt, plane) {
-    const planeToPoint = vec3.create();
-    vec3.subtract(planeToPoint, pnt, plane.anchor);
-    const dist = vec3.dot(planeToPoint, plane.normal);
-    const proj = vec3.create();
-    vec3.scale(proj, plane.normal, dist);
+class Polygon extends DrawnShape {
+    constructor(...points) {
+        super(...points);
+        this.indices = this.constituentTriangleIndices;
+    }
 
-    const projectum = vec3.create();
-    vec3.subtract(projectum, pnt, proj);
-    return projectum;
+    /**
+     * Get a polygon from its vertices.
+     * @param  {...vec3} points The 3D positions of the vertices.
+     * @returns {Polygon|null} 
+     */
+    static fromPoints(...points) {
+        const poly = new Polygon(...points);
+        
+        if (poly.constituentTriangles.some(t=>!t)) return null;
+        return poly;
+    }
+
+    /** @returns {Array<Triangle>} */
+    get allTriangles() {
+        const tris = [];
+        for (let i = 0; i < this.vertices.length - 2; i++) {
+            for (let j = i+1; j < this.vertices.length - 1; j++) {
+                for (let k = j+1; k < this.vertices.length; k++) {
+                    tris.push(Triangle.fromPoints(this.vertices[i], this.vertices[j], this.vertices[k]));
+                }
+            }
+        }
+        return tris.filter(tri => !!tri);
+    }
+
+    /** @returns {Array<Array<number>>} */
+    get constituentTriangleIndices() {
+        const tris = [];
+        let i = 0;
+        let j = this.vertices.length-1;
+
+        let k = 1;
+        while (j > i+1) {
+            tris.push(k%2 ? [i, j, ++i] : [j, i, --j]);
+            k++;
+        }
+        return tris;
+    }
+
+    /** @returns {Array<Triangle>} */
+    get constituentTriangles() {
+        return this.constituentTriangleIndices.map(arr => Triangle.fromPoints(...arr.map(i => this.vertices[i])));
+    }
+
+    get area() {
+        return this.constituentTriangles.map(t => t.area).reduce((a,b) => a+b, 0);
+    }
+
+    getIndexBuffer() {
+        return new Uint16Array(this.indices.flat());
+    }
+
+    /** @param {Camera} cam  */
+    isHoveredUpon(cam) {
+        const mP = getMousePos();
+        const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
+
+        const résultat = this.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
+        return résultat;
+    }
 }
 
-/**
- * 
- * @param {vec3} v The vector to represent in the given basis.
- * @param {vec3} e1 Basis vector in objective coordinates (will be subtracted from origin vector).
- * @param {vec3} e2 Basis vector in objective coordinates (will be subtracted from origin vector).
- * @param {vec3} e3 Basis vector in objective coordinates (will be subtracted from origin vector).
- */
-function getVecInBasis(v, e1, e2, e3) {
-    const basis = mat3.create();
-    mat3.set(basis,
-        e1[0], e2[0], e3[0],
-        e1[1], e2[1], e3[1],
-        e1[2], e2[2], e3[2],
-    );
-
-    const invBasis = mat3.create(); mat3.invert(invBasis, basis);
-    const result = vec3.create(); vec3.transformMat3(result, v, invBasis);
-
-    return result;
-}
-
-class Triangle extends DrawnShape {
+class Triangle extends Polygon {
     constructor(p1, p2, p3) {
         super(p1, p2, p3);
         this.v1 = p1;
@@ -351,72 +391,11 @@ class Triangle extends DrawnShape {
         return (bary.α > 0 && bary.β > 0 && bary.γ > 0) && (Math.abs(sum - 1) <= 1e-6);
     }
 
+    get constituentTriangles() { return this; }
+    get allTriangles() { return this; }
+
     getIndexBuffer() {
         return [0, 1, 2];
-    }
-}
-
-class Polygon extends DrawnShape {
-    constructor(...points) {
-        super(...points);
-        this.indices = this.constituentTriangleIndices;
-    }
-
-    /**
-     * Get a polygon from its vertices.
-     * @param  {...vec3} points The 3D positions of the vertices.
-     * @returns {Polygon|null} 
-     */
-    static fromPoints(...points) {
-        const poly = new Polygon(...points);
-        
-        if (poly.constituentTriangles.every(a=>!a)) return null;
-        return poly;
-    }
-
-    /** @returns {Array<Triangle>} */
-    get allTriangles() {
-        const tris = [];
-        for (let i = 0; i < this.vertices.length - 2; i++) {
-            for (let j = i+1; j < this.vertices.length - 1; j++) {
-                for (let k = j+1; k < this.vertices.length; k++) {
-                    tris.push(Triangle.fromPoints(this.vertices[i], this.vertices[j], this.vertices[k]));
-                }
-            }
-        }
-        return tris.filter(tri => !!tri);
-    }
-
-    /** @returns {Array<Array<number>>} */
-    get constituentTriangleIndices() {
-        const tris = [];
-        let i = 0;
-        let j = this.vertices.length-1;
-
-        let k = 1;
-        while (j > i+1) {
-            tris.push(k%2 ? [i, j, ++i] : [j, i, --j]);
-            k++;
-        }
-        return tris;
-    }
-
-    /** @returns {Array<Triangle>} */
-    get constituentTriangles() {
-        return this.constituentTriangleIndices.map(arr => Triangle.fromPoints(...arr.map(i => this.vertices[i])));
-    }
-
-    getIndexBuffer() {
-        return new Uint16Array(this.indices.flat());
-    }
-
-    /** @param {Camera} cam  */
-    isHoveredUpon(cam) {
-        const mP = getMousePos();
-        const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
-
-        const résultat = this.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
-        return résultat;
     }
 }
 
@@ -437,6 +416,7 @@ class Quadrilateral extends Polygon {
         const quad = new Quadrilateral(p1, p2, p3, p4);
         
         if (Triangle.fromPoints(p1, p2, p3) && Triangle.fromPoints(p1, p3, p4) && Triangle.fromPoints(p1, p2, p4)) return quad;
+        else return null;
     }
 
     /**

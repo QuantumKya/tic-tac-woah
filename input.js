@@ -31,7 +31,7 @@ const getCamMove = () => {
 
     return [
         Number(keysDown.KeyD) - Number(keysDown.KeyA) + mouseElapsed[0] * Number(rightMousing) * 0.5,
-        Number(keysDown.KeyW) - Number(keysDown.KeyS) + mouseElapsed[1] * Number(rightMousing) * 0.5,
+        Number(keysDown.KeyW) - Number(keysDown.KeyS) + -mouseElapsed[1] * Number(rightMousing) * 0.5,
         Number(keysDown.KeyE) - Number(keysDown.KeyQ) + scrl * 0.05
     ];
 };

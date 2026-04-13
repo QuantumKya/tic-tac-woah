@@ -7,7 +7,8 @@ import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
 
-
+/** @typedef {{program: WebGLProgram, attribLocations: {vertexPosition: number, textureCoord: number, vertexColor: number}, uniformLocations: {projectionMatrix: number, modelViewMatrix: number, uSampler: number, uColor: number}}} ProgramInfo */
+/** @typedef {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} BufferSet */
 
 // ================================ STUFF THAT CHANGES ================================ //
 let cubeRotation = 0.0;
@@ -24,8 +25,12 @@ const changeyStuff = {
 };
 
 const currentShader = shaderSet.default;
-const shapes = {};
-const renderers = {};
+const shapes = {
+    xs: []
+};
+const renderers = {
+    xs: []
+};
 main();
 
 
@@ -63,12 +68,7 @@ function makeShapes(gl, cam) {
     f6.setColor(COLORS.MAGENTA);
     const cubeFaces = [f1,f2,f3,f4,f5,f6];
 
-    const cubeGeoms = cubeFaces.map(f => new Geometry(
-        new Float32Array(f.getVertices()),
-        new Uint16Array(f.getIndexBuffer()),
-        new Float32Array(f.getColors()),
-        new Float32Array(f.getTextureBuffer())
-    ));
+    const cubeGeoms = cubeFaces.map(Geometry.fromPolygon);
     const cubeGeometry = Geometry.combineGeometries(...cubeGeoms);
 
     const cubeMaterial = new Material({
@@ -130,15 +130,9 @@ function makeShapes(gl, cam) {
             
             const poly = Polygon.fromPoints(...verts);
             poly.setColor(light ? brown1 : brown2);
-
-            const geom = new Geometry(
-                new Float32Array(poly.getVertices()),
-                new Uint16Array(poly.getIndexBuffer()),
-                new Float32Array(poly.getColors()),
-                new Float32Array(poly.getTextureBuffer())
-            );
-
             wheelFaces.push(poly);
+
+            const geom = Geometry.fromPolygon(poly);
             wheelRenderers.push(new RenderObject(geom, wheelMaterial));
         }
     }
@@ -210,7 +204,9 @@ function draw(gl, programInfo) {
     for (let i = 0; i < shapes.annulus.length; i++) {
         const f = shapes.annulus[i];
         
-        renderers.annulus[i].setMaterialColor(f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE);
+        renderers.annulus[i].setMaterialColor(
+            f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE
+        );
     }
 
     // ================================ DRAW & LOOP ================================ //
@@ -288,6 +284,40 @@ function main() {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     TEXTURES.ITSFINALLYMINISHED = loadTexture(gl, 'minish.png');
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    TEXTURES.X = loadTexture(gl, 'x.png');
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+    canvas.addEventListener('mousedown', e => {
+        const anfaces = shapes.annulus;
+        const anrenders = renderers.annulus;
+        if (!anfaces || !anrenders) return;
+
+        for (let i = 0; i < anfaces.length; i++) {
+            const f = anfaces[i];
+            const r = anrenders[i];
+
+            if (!f.isHoveredUpon(camera)) continue;
+
+            const xshape = f.getMatchingSquare();
+            xshape.setColor(COLORS.WHITE);
+
+            const norm = xshape.getPlane().normal;
+            const offset = vec3.scale(vec3.create(), norm, 0.25);
+            for (const p of xshape.vertices) vec3.add(p, p, offset); // make it a little higher up
+            
+
+            const xgeom = Geometry.fromPolygon(xshape);
+            const xmaterial = new Material({
+                texture: TEXTURES.X
+            });
+
+            const xrender = new RenderObject(xgeom, xmaterial);
+            shapes.xs.push(xshape);
+            renderers.xs.push(xrender);
+
+            return;
+        }
+    });
 
 
 

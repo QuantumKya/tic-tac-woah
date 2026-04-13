@@ -1,9 +1,7 @@
-import Camera from "./camera.js";
-
 /**
  * @param {WebGLRenderingContext} gl 
- * @param {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} buffers 
- * @param {Camera} camera
+ * @param {import("./draw.js").ProgramInfo} programInfo 
+ * @param {import("./draw.js").BufferSet} buffers 
  */
 function drawScene(gl, programInfo, buffers, changeyStuff) {
     // The caller is responsible for clearing the canvas once per frame.
@@ -62,8 +60,12 @@ function drawScene(gl, programInfo, buffers, changeyStuff) {
     }
 }
 
-// Tell WebGL how to pull out the positions from the position
-// buffer into the vertexPosition attribute.
+
+/**
+ * @param {WebGLRenderingContext} gl 
+ * @param {import("./draw.js").BufferSet} buffers 
+ * @param {import("./draw.js").ProgramInfo} programInfo 
+ */
 function setPositionAttribute(gl, buffers, programInfo) {
     const numComponents = 3; // pull out 3 values per iteration
     const type = gl.FLOAT; // the data in the buffer is 32bit floats
@@ -83,6 +85,11 @@ function setPositionAttribute(gl, buffers, programInfo) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 }
 
+/**
+ * @param {WebGLRenderingContext} gl 
+ * @param {import("./draw.js").BufferSet} buffers 
+ * @param {import("./draw.js").ProgramInfo} programInfo 
+ */
 function setColorAttribute(gl, buffers, programInfo) {
     const numComponents = 4;
     const type = gl.FLOAT;
@@ -101,6 +108,11 @@ function setColorAttribute(gl, buffers, programInfo) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
 }
 
+/**
+ * @param {WebGLRenderingContext} gl 
+ * @param {import("./draw.js").BufferSet} buffers 
+ * @param {import("./draw.js").ProgramInfo} programInfo 
+ */
 function setTextureAttribute(gl, buffers, programInfo) {
     const num = 2; // every coordinate composed of 2 values
     const type = gl.FLOAT; // the data in the buffer is 32-bit float

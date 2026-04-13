@@ -111,7 +111,6 @@ const COLORS = {
 
 
 
-// params are from 0 to 255
 /**
  * All inputs are between 0 and 255
  * @param {number} r 

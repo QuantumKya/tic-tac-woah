@@ -102,6 +102,52 @@ const getQuatFromEulerRad = (rotX, rotY, rotZ) => {
     return rotQuat;
 };
 
+/**
+ * Project a 3D point onto a given plane.
+ * @param {vec3} pnt Point to project.
+ * @param {Plane} plane Plane to project onto.
+ * @returns {vec3} Projected point.
+ */
+function projectPointOnPlane(pnt, plane) {
+    const planeToPoint = vec3.create();
+    vec3.subtract(planeToPoint, pnt, plane.anchor);
+    const dist = vec3.dot(planeToPoint, plane.normal);
+    const proj = vec3.create();
+    vec3.scale(proj, plane.normal, dist);
+
+    const projectum = vec3.create();
+    vec3.subtract(projectum, pnt, proj);
+    return projectum;
+}
+
+/**
+ * Get a vector's equivalent in a certain basis.
+ * Returns null if any two bases are collinear.
+ * @param {vec3} v The vector to represent in the given basis.
+ * @param {vec3} e1 Basis vector 1.
+ * @param {vec3} e2 Basis vector 2.
+ * @param {vec3} e3 Basis vector 3.
+ * @returns {vec3|null} The vector representing the input vector in the given basis.
+ */
+function getVecInBasis(v, e1, e2, e3) {
+    for (let i = 0; i < 3; i++) for (let j = i+1; j < 3; j++) {
+        const cross = vec3.create(); vec3.cross(cross, [e1,e2,e3][i], [e1,e2,e3][j]);
+        if (vec3.length(cross) === 0) return null;
+    }
+
+    const basis = mat3.create();
+    mat3.set(basis,
+        e1[0], e2[0], e3[0],
+        e1[1], e2[1], e3[1],
+        e1[2], e2[2], e3[2],
+    );
+
+    const invBasis = mat3.create(); mat3.invert(invBasis, basis);
+    const result = vec3.create(); vec3.transformMat3(result, v, invBasis);
+
+    return result;
+}
+
 export {
     avgArray,
     wAvgArray,
@@ -110,5 +156,7 @@ export {
     DIRECTIONS,
     unNoise,
     getEulerAnglesFromMatrix,
-    getQuatFromEulerRad
+    getQuatFromEulerRad,
+    projectPointOnPlane,
+    getVecInBasis
 }

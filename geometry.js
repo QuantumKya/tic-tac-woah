@@ -69,6 +69,20 @@ class Geometry {
         this.colors = colors;
         this.texcoords = texcoords;
     }
+    
+    /**
+     * Get a geometry object directly from a Polygon. Extracts buffers from the given Polygon using built-in Polygon functions.
+     * @param {DrawnShape} poly The Polygon from which to take buffer data.
+     * @returns {Geometry} The constructed Geometry.
+     */
+    static fromPolygon(poly) {
+        return new Geometry(
+            new Float32Array(poly.getVertices()),
+            new Uint16Array(poly.getIndexBuffer()),
+            new Float32Array(poly.getColors()),
+            new Float32Array(poly.getTextureBuffer())
+        );
+    }
 
     makeBuffers(gl) {
         this.buffers = initBuffers(
