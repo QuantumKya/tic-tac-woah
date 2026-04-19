@@ -277,7 +277,7 @@ class Polygon extends DrawnShape {
         const tangent1 = kpaths[t];
         const tangent2 = vec3.create(); vec3.cross(tangent2, tangent1, polyplane.normal);
         
-        const sqSize = 0.95*minDist;
+        const sqSize = 0.85*minDist;
         vec3.normalize(tangent1, tangent1); vec3.normalize(tangent2, tangent2);
         vec3.scale(tangent1, tangent1, sqSize); vec3.scale(tangent2, tangent2, sqSize*aspectRatio);
 

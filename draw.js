@@ -6,7 +6,7 @@ import { getCamMove } from "./input.js";
 import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
-import { makeSphere } from "./shape_making.js";
+import { makeAnnulus, makeCube, makeSphere } from "./shape_making.js";
 
 /** @typedef {{program: WebGLProgram, attribLocations: {vertexPosition: number, textureCoord: number, vertexColor: number}, uniformLocations: {projectionMatrix: number, modelViewMatrix: number, uSampler: number, uColor: number}}} ProgramInfo */
 /** @typedef {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} BufferSet */
@@ -39,121 +39,33 @@ main();
 /** @param {WebGLRenderingContext} gl The WebGL renderer. */
 function makeShapes(gl) {
 
-    const cubeRadius = 7.5;
-    const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
-    const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, cubeRadius*2);
-    const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, cubeRadius*2);
-    const scaledMX = vec3.scale(vec3.create(), DIRECTIONS.MX, cubeRadius*2);
-    const scaledMY = vec3.scale(vec3.create(), DIRECTIONS.MY, cubeRadius*2);
-    const scaledMZ = vec3.scale(vec3.create(), DIRECTIONS.MZ, cubeRadius*2);
-
-    const halfXYZ = vec3.scale(vec3.create(), DIRECTIONS.XYZ, cubeRadius);
-    const halfMXYZ = vec3.scale(vec3.create(), DIRECTIONS.XYZ, -cubeRadius);
-
-    // Make cube
-    const f1 = Quadrilateral.fromSides(halfMXYZ, scaledX, scaledY);
-    const f2 = Quadrilateral.fromSides(halfMXYZ, scaledX, scaledZ);
-    const f3 = Quadrilateral.fromSides(halfMXYZ, scaledY, scaledZ);
-    const f4 = Quadrilateral.fromSides(halfXYZ, scaledMX, scaledMY);
-    const f5 = Quadrilateral.fromSides(halfXYZ, scaledMX, scaledMZ);
-    const f6 = Quadrilateral.fromSides(halfXYZ, scaledMY, scaledMZ);
-    f1.setColor(COLORS.RED);
-    f2.setColor(COLORS.BLUE);
-    f3.setColor(COLORS.GREEN);
-    f4.setColor(COLORS.YELLOW);
-    f5.setColor(COLORS.CYAN);
-    f6.setColor(COLORS.MAGENTA);
-    const cubeFaces = [f1,f2,f3,f4,f5,f6];
-
-    const cubeGeoms = cubeFaces.map(Geometry.fromPolygon);
-    const cubeGeometry = Geometry.combineGeometries(...cubeGeoms);
-
-    const cubeMaterial = new Material({
-        color: COLORS.NONE,
-        texture: TEXTURES.ITSFINALLYMINISHED
-    });
-    const cubeRender = new RenderObject(cubeGeometry, cubeMaterial);
-
-
-
-    const wheelFaces = [];
-    const wheelMaterial = Material.NONE;
-    const wheelRenderers = [];
-    
-    const radius = 2;
-    const numOfRegions = 8;
-    const rows = 4;
-    const per = 8;
-
-    const center = vec3.fromValues(0, 0, 0);
-    
     const brown1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 0.05);
     const brown2 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 0.35);
-    
-    
-    const rowrad = radius/(rows+1);
-    for (let r = 1; r <= rows; r++) {
-        const inrad = r*rowrad;
-        const outrad = (r+1)*rowrad;
 
-        for (let n = 0; n < numOfRegions; n++) {
-            const verts = [];
-            
-            const fromRad = (rad, direction) => {
-                for (let i = 0; i <= per; i++) {
-                    const thetaIndex = (n + Math.max(0, -direction) + direction * i/per);
-                    const angle = thetaIndex * 2*Math.PI / numOfRegions;
-                    
-                    const offset = vec3.fromValues(
-                        rad*Math.cos(angle),
-                        0,
-                        -rad*Math.sin(angle),
-                    );
-                    const circlepoint = vec3.create();
-                    vec3.add(circlepoint, center, offset);
-                    verts.push(circlepoint);
-                }
-            }
-
-            fromRad(inrad, 1);
-            fromRad(outrad, -1);
-
-
-
-            const light = (r & 1) ^ (n & 1);
-            
-            const poly = Polygon.fromPoints(...verts);
-            if (!poly) continue;
-            poly.setColor(light ? brown1 : brown2);
-            wheelFaces.push(poly);
-
-            const geom = Geometry.fromPolygon(poly);
-            wheelRenderers.push(new RenderObject(geom, wheelMaterial));
-        }
-    }
-
-
-
-    cubeRender.init(gl);
-    wheelRenderers.forEach(wr => wr.init(gl));
-
-    shapes.cube = cubeFaces;
-    renderers.cube = cubeRender;
-    shapes.annulus = wheelFaces;
-    renderers.annulus = wheelRenderers;
-
-
-    const sphereStuff = makeSphere(
-        vec3.fromValues(1,0,0),
-        0.5,
-        (t,p) => COLORS.RED,
-        3,
-        3
+    const annulusStuff = makeAnnulus(
+        vec3.fromValues(0,0,0),
+        2, 1, 4, 8,
+        (r,s) => ((r & 1) ^ (s & 1)) ? brown1 : brown2
     );
-    sphereStuff.renderers.forEach(sr => sr.init(gl));
+    annulusStuff.renderers.forEach(wr => wr.init(gl));
+    shapes.annulus = annulusStuff.shapes;
+    renderers.annulus = annulusStuff.renderers;
 
+
+    const sphereStuff = makeSphere(vec3.fromValues(0,0,0), 0.5, () => COLORS.RED);
+    sphereStuff.renderers.forEach(sr => sr.init(gl));
     shapes.sphere = sphereStuff.shapes;
     renderers.sphere = sphereStuff.renderers;
+
+    const cubeStuff = makeCube(
+        vec3.fromValues(0,0,0),
+        7.5,
+        (i) => [COLORS.RED, COLORS.BLUE, COLORS.GREEN, COLORS.YELLOW, COLORS.CYAN, COLORS.MAGENTA][i]
+    );
+    cubeStuff.renderer.init(gl);
+    cubeStuff.renderer.setMaterialTexture(TEXTURES.ITSFINALLYMINISHED);
+    shapes.cube = cubeStuff.sides;
+    renderers.cube = cubeStuff.renderer;
 }
 
 
@@ -210,7 +122,7 @@ function draw(gl, programInfo) {
     // ================================ DRAW & LOOP ================================ //
     
     renderers.cube.draw(gl, programInfo, changeyStuff);
-    //for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
+    for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
     for (const r of renderers.xs) r.draw(gl, programInfo, changeyStuff);
     for (const r of renderers.os) r.draw(gl, programInfo, changeyStuff);
 
@@ -293,12 +205,6 @@ function main() {
         for (let i = 0; i < shapes.annulus.length; i++) {
             const f = shapes.annulus[i];
             renderers.annulus[i].setMaterialColor(
-                f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE
-            );
-        }
-        for (let i = 0; i < shapes.sphere.length; i++) {
-            const f = shapes.sphere[i];
-            renderers.sphere[i].setMaterialColor(
                 f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE
             );
         }
