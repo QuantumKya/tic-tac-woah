@@ -2,10 +2,11 @@ import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
 import { Polygon, Quadrilateral } from "./shapez.js";
 import { DIRECTIONS, unNoise } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
-import { getCamMove, getMousePos } from "./input.js";
+import { getCamMove } from "./input.js";
 import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
+import { makeSphere } from "./shape_making.js";
 
 /** @typedef {{program: WebGLProgram, attribLocations: {vertexPosition: number, textureCoord: number, vertexColor: number}, uniformLocations: {projectionMatrix: number, modelViewMatrix: number, uSampler: number, uColor: number}}} ProgramInfo */
 /** @typedef {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} BufferSet */
@@ -24,23 +25,19 @@ const changeyStuff = {
     shakeRandom: vec2.create(),
 };
 
-const currentShader = shaderSet.default;
+const currentShader = shaderSet.shaky;
 const shapes = {
-    xs: []
+    xs: [], os: []
 };
 const renderers = {
-    xs: []
+    xs: [], os: []
 };
 main();
 
 
 
-/**
- * @param {WebGLRenderingContext} gl The WebGL renderer.
- * @param {Camera} cam The camera.
- * @returns {Array<RenderObject>}
- */
-function makeShapes(gl, cam) {
+/** @param {WebGLRenderingContext} gl The WebGL renderer. */
+function makeShapes(gl) {
 
     const cubeRadius = 7.5;
     const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
@@ -80,24 +77,21 @@ function makeShapes(gl, cam) {
 
 
     const wheelFaces = [];
-    const wheelMaterial = new Material({
-        color: COLORS.NONE,
-        texture: TEXTURES.BLANK
-    });
+    const wheelMaterial = Material.NONE;
     const wheelRenderers = [];
     
     const radius = 2;
-    const numOfRegions = 12;
-    const per = 4;
-
+    const numOfRegions = 8;
     const rows = 4;
-    const rowrad = radius/(rows+1);
+    const per = 8;
 
-    const center = vec3.fromValues(0, -1, 0);
-
+    const center = vec3.fromValues(0, 0, 0);
+    
     const brown1 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 0.05);
     const brown2 = Color.lerpColors(COLORS.BROWN, COLORS.WHITE, 0.35);
-
+    
+    
+    const rowrad = radius/(rows+1);
     for (let r = 1; r <= rows; r++) {
         const inrad = r*rowrad;
         const outrad = (r+1)*rowrad;
@@ -129,6 +123,7 @@ function makeShapes(gl, cam) {
             const light = (r & 1) ^ (n & 1);
             
             const poly = Polygon.fromPoints(...verts);
+            if (!poly) continue;
             poly.setColor(light ? brown1 : brown2);
             wheelFaces.push(poly);
 
@@ -146,6 +141,19 @@ function makeShapes(gl, cam) {
     renderers.cube = cubeRender;
     shapes.annulus = wheelFaces;
     renderers.annulus = wheelRenderers;
+
+
+    const sphereStuff = makeSphere(
+        vec3.fromValues(1,0,0),
+        0.5,
+        (t,p) => COLORS.RED,
+        3,
+        3
+    );
+    sphereStuff.renderers.forEach(sr => sr.init(gl));
+
+    shapes.sphere = sphereStuff.shapes;
+    renderers.sphere = sphereStuff.renderers;
 }
 
 
@@ -199,23 +207,16 @@ function draw(gl, programInfo) {
         return mat;
     });
 
-    // ================================ CHANGES TO SHAPES ================================ //
-
-    for (let i = 0; i < shapes.annulus.length; i++) {
-        const f = shapes.annulus[i];
-        
-        renderers.annulus[i].setMaterialColor(
-            f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE
-        );
-    }
-
     // ================================ DRAW & LOOP ================================ //
     
     renderers.cube.draw(gl, programInfo, changeyStuff);
-    for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
+    //for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
     for (const r of renderers.xs) r.draw(gl, programInfo, changeyStuff);
+    for (const r of renderers.os) r.draw(gl, programInfo, changeyStuff);
 
-    requestAnimationFrame(() => draw(gl, programInfo, camera));
+    for (const s of renderers.sphere) s.draw(gl, programInfo, changeyStuff);
+
+    requestAnimationFrame(() => draw(gl, programInfo));
 
     // ================================ END-OF-LOOP CHANGES ================================ //
 
@@ -281,12 +282,27 @@ function main() {
     // load the textures
     loadBasicTextures(gl);
 
-    TEXTURES.PH = loadTexture(gl, 'faceholder.png');
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    TEXTURES.ITSFINALLYMINISHED = loadTexture(gl, 'minish.png');
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     TEXTURES.X = loadTexture(gl, 'x.png');
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    TEXTURES.O = loadTexture(gl, 'o.png');
+    TEXTURES.PH = loadTexture(gl, 'faceholder.png');
+    TEXTURES.ITSFINALLYMINISHED = loadTexture(gl, 'minish.png');
+
+    // ================================ CHANGES TO SHAPES ================================ //
+
+    document.addEventListener('mousemove', e => {
+        for (let i = 0; i < shapes.annulus.length; i++) {
+            const f = shapes.annulus[i];
+            renderers.annulus[i].setMaterialColor(
+                f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE
+            );
+        }
+        for (let i = 0; i < shapes.sphere.length; i++) {
+            const f = shapes.sphere[i];
+            renderers.sphere[i].setMaterialColor(
+                f.isHoveredUpon(camera) ? COLORS.WHITE : COLORS.NONE
+            );
+        }
+    });
 
     canvas.addEventListener('mousedown', e => {
         if (e.button !== 0) return;
@@ -300,7 +316,6 @@ function main() {
             if (!f.isHoveredUpon(camera)) continue;
 
             const xshape = f.getMatchingSquare();
-            xshape.setColor(COLORS.WHITE);
 
             const norm = xshape.getPlane().normal;
             const offset = vec3.scale(vec3.create(), norm, -0.01);
@@ -309,13 +324,14 @@ function main() {
 
             const xgeom = Geometry.fromPolygon(xshape);
             const xmaterial = new Material({
-                texture: TEXTURES.X
+                texture: (e.shiftKey ? TEXTURES.O : TEXTURES.X),
+                color: (e.shiftKey ? COLORS.BLUE : COLORS.RED)
             });
             const xrender = new RenderObject(xgeom, xmaterial);
             xrender.init(gl);
 
-            shapes.xs.push(xshape);
-            renderers.xs.push(xrender);
+            shapes[e.shiftKey ? 'os' : 'xs'].push(xshape);
+            renderers[e.shiftKey ? 'os' : 'xs'].push(xrender);
 
             return;
         }

@@ -1,4 +1,4 @@
-import { avgPoints, DIRECTIONS, getVecInBasis, projectPointOnPlane } from "./math_stuff.js";
+import { avgArray, avgPoints, DIRECTIONS, getVecInBasis, projectPointOnPlane } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
 import { TEXTURES } from "./textures.js";
 import { getMousePos } from "./input.js";
@@ -81,6 +81,34 @@ class Plane {
         vec3.scaleAndAdd(p, origin, dir, t);
         return p;
     }
+
+    /** @returns {vec3[]|null} */
+    getBasis() {
+        const getCross = (v) => {
+            const crossV = vec3.cross(vec3.create(), this.normal, v); vec3.normalize(crossV, crossV); return crossV;
+        };
+        const crossX = getCross(DIRECTIONS.X);
+        const crossY = getCross(DIRECTIONS.Y);
+        const crossZ = getCross(DIRECTIONS.Z);
+        const crossXY = getCross(DIRECTIONS.XY);
+        const crossYZ = getCross(DIRECTIONS.YZ);
+        const crossXZ = getCross(DIRECTIONS.XZ);
+
+        for (const v of [crossX, crossY, crossZ, crossXY, crossYZ, crossXZ]) {
+            if (vec3.length(v) <= 1e-4) continue;
+
+            const other = vec3.cross(vec3.create(), v, this.normal); vec3.normalize(other, other);  
+            return [ v, other, this.normal ];
+        }
+        return null;
+    }
+
+    /** @returns {vec3} */
+    getVecInMyBasis(vec) {
+        const basis = this.getBasis();
+        if (!basis) return null;
+        return getVecInBasis(vec, ...basis);
+    }
 }
 
 class DrawnShape {
@@ -92,6 +120,8 @@ class DrawnShape {
         this.vertices = points;
         this.color = COLORS.GRAY;
         this.texture = TEXTURES.BLANK;
+
+        //this.sortVerticesByAngle();
     }
 
     /** @returns {vec3} */
@@ -129,120 +159,12 @@ class DrawnShape {
             this.vertices.flatMap(v => this.color.rgba)
         );
     }
-
-    /** @returns {Plane} */
-    getPlane() {
-        const kendra = this.centroid; // centroid POINT
-        const tangent1 = vec3.subtract(vec3.create(), this.vertices[0], kendra);
-        const tangent2 = vec3.subtract(vec3.create(), this.vertices[1], kendra);
-        const cross = vec3.cross(vec3.create(), tangent1, tangent2);
-
-        const polyplane = Plane.fromNormalAndPoint(cross, kendra);
-        return polyplane;
-    }
-
-    /** @returns {Quadrilateral} */
-    getMatchingSquare() {
-        const polyplane = this.getPlane();
-        // fallback (cursed)
-        if (!polyplane) { return new Float32Array(this.vertices.flatMap((_,i) => [i%2, Math.floor(i/2) % 2])); }
-
-        // orthovectors
-        const tangent1 = vec3.create();
-        vec3.subtract(tangent1, this.vertices[1], this.vertices[0]);
-        vec3.normalize(tangent1, tangent1);
-
-        const tangent2 = vec3.create();
-        vec3.cross(tangent2, polyplane.normal, tangent1);
-        vec3.normalize(tangent2, tangent2);
-        
-        const norm = polyplane.normal;
-
-
-        
-        let minA = Infinity; let maxA = -Infinity;
-        let minB = Infinity; let maxB = -Infinity;
-        for (const v of this.vertices) {
-            const projectee = projectPointOnPlane(v, polyplane);
-
-            const relativeVec = getVecInBasis(projectee, tangent1, tangent2, norm);
-
-            const c0 = relativeVec[0];
-            const c1 = relativeVec[1];
-            minB = Math.min(minB, c0); maxB = Math.max(maxB, c0);
-            minA = Math.min(minA, c1); maxA = Math.max(maxA, c1);
-        }
-
-        const diffA = maxA - minA;
-        const diffB = maxB - minB;
-        // uses the average here as not to be too big, but can use anything else
-        const squareSize = (diffA + diffB) / 2 / 3.5;
-
-        const boundBasisA = vec3.create(); vec3.scale(boundBasisA, tangent1, squareSize);
-        const boundBasisB = vec3.create(); vec3.scale(boundBasisB, tangent2, squareSize);
-
-        const diag = vec3.create(); vec3.add(diag, boundBasisA, boundBasisB);
-        const corner = vec3.create(); vec3.subtract(corner, this.centroid, diag);
-
-        const sq = Quadrilateral.fromSides(corner,
-            vec3.scale(vec3.create(), boundBasisA, 2),
-            vec3.scale(vec3.create(), boundBasisB, 2)
-        );
-        return sq;
-    }
-
-    /** @returns {Float32Array} */
-    getTextureBuffer() {
-        const kendra = this.centroid; // centroid POINT
-        const tangent1 = vec3.subtract(vec3.create(), this.vertices[0], kendra);
-        const tangent2 = vec3.subtract(vec3.create(), this.vertices[1], kendra);
-        const cross = vec3.cross(vec3.create(), tangent1, tangent2);
-
-        const polyplane = Plane.fromNormalAndPoint(cross, kendra);
-        if (!polyplane) { // fallback (cursed)
-            return new Float32Array(this.vertices.flatMap((_,i) => [i%2, Math.floor(i/2) % 2]));
-        }
-
-        // Create two orthogonal vectors in the plane
-        const tangent = vec3.create();
-        vec3.subtract(tangent, this.vertices[1], this.vertices[0]);
-        vec3.normalize(tangent, tangent);
-
-        const bitangent = vec3.create();
-        vec3.cross(bitangent, polyplane.normal, tangent);
-
-        // Project vertices onto the plane and compute UV
-        const uvs = [];
-        let minU = Infinity, maxU = -Infinity;
-        let minV = Infinity, maxV = -Infinity;
-        const projectedUVs = [];
-
-        for (const vert of this.vertices) {
-            const fromAnchor = vec3.create(); vec3.subtract(fromAnchor, vert, polyplane.anchor);
-            const u = vec3.dot(fromAnchor, tangent);
-            const v = vec3.dot(fromAnchor, bitangent);
-            
-            projectedUVs.push({ u, v });
-            minU = Math.min(minU, u); maxU = Math.max(maxU, u);
-            minV = Math.min(minV, v); maxV = Math.max(maxV, v);
-        }
-
-        // Normalize to [0, 1]
-        const rangeU = maxU - minU || 1;
-        const rangeV = maxV - minV || 1;
-
-        for (const { u, v } of projectedUVs) {
-            uvs.push((u - minU) / rangeU, (v - minV) / rangeV);
-        }
-
-        return new Float32Array(uvs);
-    }
 }
 
 class Polygon extends DrawnShape {
     constructor(...points) {
         super(...points);
-        this.indices = this.constituentTriangleIndices;
+        this.indices = this.constituentTriangleIndices.flat();
     }
 
     /**
@@ -294,7 +216,7 @@ class Polygon extends DrawnShape {
     }
 
     getIndexBuffer() {
-        return new Uint16Array(this.indices.flat());
+        return new Uint16Array(this.indices);
     }
 
     /** @param {Camera} cam  */
@@ -304,6 +226,141 @@ class Polygon extends DrawnShape {
 
         const résultat = this.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
         return résultat;
+    }
+
+    /** @returns {Plane} */
+    getPlane() {
+        const kendra = this.centroid; // centroid POINT
+        const kpaths = this.vertices.map(v => vec3.subtract(vec3.create(), v, kendra));
+
+        const normals = [];
+        for (let i = 0; i < this.vertices.length; i++) for (let j = 0; j < i; j++) {
+            const v1 = kpaths[i]; const v2 = kpaths[j];
+            const cross = vec3.cross(vec3.create(), v1, v2);
+            vec3.normalize(cross, cross);
+            normals.push(cross);
+        }
+        if (normals.length === 0) return null;
+
+        const avgdir = vec3.create();
+        for (const n of normals) {
+            // this side-correction favors the first two vertices — I don't know a better solution
+            if (vec3.dot(n, normals[0]) < 0)
+                vec3.negate(n, n);
+            
+            vec3.add(avgdir, avgdir, n);
+        }
+        vec3.normalize(avgdir, avgdir);
+
+        const polyplane = Plane.fromNormalAndPoint(avgdir, kendra);
+        return polyplane;
+    }
+
+    /** @returns {Quadrilateral} */
+    getMatchingSquare(aspectRatio = 1) {
+        const polyplane = this.getPlane();
+        // fallback (cursed)
+        if (!polyplane) return null;
+
+        const kpaths = this.vertices.map(v => vec3.subtract(vec3.create(), v, polyplane.anchor));
+
+        let t = -1;
+        let minDist = Infinity;
+        for (let i = 0; i < kpaths.length; i++) {
+            const dist = vec3.length(kpaths[i]);
+            if (dist < minDist) {
+                minDist = dist;
+                t = i;
+            }
+        }
+
+        const tangent1 = kpaths[t];
+        const tangent2 = vec3.create(); vec3.cross(tangent2, tangent1, polyplane.normal);
+        
+        const sqSize = 0.95*minDist;
+        vec3.normalize(tangent1, tangent1); vec3.normalize(tangent2, tangent2);
+        vec3.scale(tangent1, tangent1, sqSize); vec3.scale(tangent2, tangent2, sqSize*aspectRatio);
+
+        const corner = vec3.create();
+        vec3.add(corner, polyplane.anchor, tangent1); vec3.add(corner, corner, tangent2);
+        vec3.add(corner, corner, vec3.scale(vec3.create(), polyplane.normal, 0.025));
+
+        const side1 = vec3.scale(vec3.create(), tangent1, -2);
+        const side2 = vec3.scale(vec3.create(), tangent2, -2);
+        return Quadrilateral.fromSides(corner, side1, side2);
+    }
+
+    /*
+    sortVerticesByAngle() {
+        const kendra = this.centroid;
+        const polyplane = this.getPlane();
+        if (!polyplane) return;
+
+        const basis = polyplane.getBasis();
+        if (!basis) return;
+
+        // Use first vertex as reference for angle calculations
+        const ref = this.vertices[0];
+        const offsetRef = vec3.subtract(vec3.create(), ref, kendra);
+        const basisRef = getVecInBasis(offsetRef, ...basis);
+
+        const tmp = vec3.create();
+        this.vertices.sort((a, b) => {
+            if (a === ref) return -1;
+            if (b === ref) return 1;
+            
+            const offsetA = vec3.subtract(vec3.create(), a, kendra);
+            const offsetB = vec3.subtract(vec3.create(), b, kendra);
+            const basisA = getVecInBasis(offsetA, ...basis);
+            const basisB = getVecInBasis(offsetB, ...basis);
+
+            const angleCrossA = vec3.create(); vec3.cross(angleCrossA, basisA, basisRef);
+            const signedMagA = vec3.dot(angleCrossA, polyplane.normal);
+            const angleCrossB = vec3.create(); vec3.cross(angleCrossB, basisB, basisRef);
+            const signedMagB = vec3.dot(angleCrossB, polyplane.normal);
+
+            if (signedMagA !== signedMagB) return Math.sign(signedMagA - signedMagB);
+
+            // Tie-breaker for equal angles (e.g., annulus inner/outer points): sort by distance from centroid
+            const distA = vec3.length(offsetA);
+            const distB = vec3.length(offsetB);
+            return distA - distB;
+        });
+    }
+    */
+
+    /** @returns {Float32Array} */
+    getTextureBuffer() {
+        const polyplane = this.getPlane();
+        if (!polyplane) return null;
+
+        const [ tangent, bitangent, z ] = polyplane.getBasis();
+
+        // Project vertices onto the plane and compute UV
+        const uvs = [];
+        let minU = Infinity, maxU = -Infinity;
+        let minV = Infinity, maxV = -Infinity;
+        const projectedUVs = [];
+
+        for (const vert of this.vertices) {
+            const fromAnchor = vec3.create(); vec3.subtract(fromAnchor, vert, polyplane.anchor);
+            const u = vec3.dot(fromAnchor, tangent);
+            const v = vec3.dot(fromAnchor, bitangent);
+            
+            projectedUVs.push({ u, v });
+            minU = Math.min(minU, u); maxU = Math.max(maxU, u);
+            minV = Math.min(minV, v); maxV = Math.max(maxV, v);
+        }
+
+        // Normalize to [0, 1]
+        const rangeU = maxU - minU || 1;
+        const rangeV = maxV - minV || 1;
+
+        for (const { u, v } of projectedUVs) {
+            uvs.push((u - minU) / rangeU, (v - minV) / rangeV);
+        }
+
+        return new Float32Array(uvs);
     }
 }
 
@@ -326,10 +383,6 @@ class Triangle extends Polygon {
         const tri = new Triangle(p1, p2, p3);
         if (tri.area === 0) return null;
         return tri;
-    }
-
-    get centroid() {
-        return avgPoints(this.v1, this.v2, this.v3);
     }
 
     get plane() {
@@ -379,11 +432,13 @@ class Triangle extends Polygon {
 
         const bary = this.getBarycentric(intersect);
         const sum = bary.α + bary.β + bary.γ;
-        return (bary.α > 0 && bary.β > 0 && bary.γ > 0) && (Math.abs(sum - 1) <= 1e-6);
+        return (bary.α >= 0 && bary.β >= 0 && bary.γ >= 0) && (Math.abs(sum - 1) <= 1e-6);
     }
 
+    // redundancy overrides
     get constituentTriangles() { return this; }
     get allTriangles() { return this; }
+    sortVerticesByAngle() {}
 
     getIndexBuffer() {
         return [0, 1, 2];
@@ -449,9 +504,60 @@ class Quadrilateral extends Polygon {
     }
 }
 
+class PolygonGroup extends DrawnShape {
+    /** @param {...Polygon} polys */
+    constructor(...polys) {
+        super(...polys.flatMap(p => p.vertices));
+        this.polygons = polys;
+    }
+
+    /** @returns {Float32Array} */
+    getVertices() {
+        return new Float32Array(
+            this.polygons.flatMap(p => [...p.getVertices()])
+        );
+    }
+
+    /** @returns {Float32Array} */
+    getColors() {
+        return new Float32Array(
+            this.polygons.flatMap(p => [...p.getColors()])
+        );
+    }
+
+    /** @returns {Uint16Array} */
+    getIndexBuffer() {
+        let vertexOffset = 0;
+        const indices = [];
+        for (const p of this.polygons) {
+            const polyIndices = p.getIndexBuffer();
+            for (const idx of polyIndices) {
+                indices.push(idx + vertexOffset);
+            }
+            vertexOffset += p.vertices.length;
+        }
+        return new Uint16Array(indices);
+    }
+
+    /** @returns {Float32Array} */
+    getTextureBuffer() {
+        return new Float32Array(
+            this.polygons.flatMap(p => [...p.getTextureBuffer()])
+        );
+    }
+
+    isHoveredUpon(cam) {
+        return this.polygons.some(p => p.isHoveredUpon(cam));
+    }
+    setColor(color) {
+        this.polygons.forEach(p => p.setColor(color));
+    }
+}
+
 
 
 export {
     DrawnShape,
-    Triangle, Polygon, Quadrilateral
+    Triangle, Polygon, Quadrilateral,
+    PolygonGroup
 }

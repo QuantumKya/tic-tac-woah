@@ -1,6 +1,7 @@
 import { COLORS } from "./color.js";
 
 // ================================ I STOLE THIS WHOLE THING FROM THE MDN WEB DOCS TUTORIAL ============================= //
+/** @param {WebGLRenderingContext} gl @param {string} url @returns {WebGLTexture} */
 function loadTexture(gl, url) {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);

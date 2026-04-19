@@ -19,6 +19,13 @@ class Material {
 
         gl.uniform4fv(programInfo.uniformLocations.uColor, this.color.Float32);
     }
+
+    static get NONE() {
+        return new Material({
+            color: COLORS.NONE,
+            texture: TEXTURES.BLANK
+        });
+    }
 }
 
 class RenderObject {

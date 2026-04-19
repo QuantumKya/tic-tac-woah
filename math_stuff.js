@@ -39,11 +39,10 @@ function distanceToPlane(point, norm, anchor) {
  * @param  {...vec3} pts The points to average the coordinates of.
  */
 const avgPoints = (...pts) => {
-    return vec3.fromValues(
-        avgArray(pts.map(p=>p[0])),
-        avgArray(pts.map(p=>p[1])),
-        avgArray(pts.map(p=>p[2])),
-    );
+    const sum = vec3.create();
+    for (const p of pts) vec3.add(sum, sum, p);
+    vec3.scale(sum, sum, 1/pts.length);
+    return sum;
 }
 
 const X = vec3.fromValues(1,0,0);
