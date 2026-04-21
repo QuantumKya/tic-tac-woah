@@ -9,7 +9,7 @@ class Material {
      */
     constructor({ color = null, texture = null } = {}) {
         this.color = color ?? COLORS.NONE;
-        this.texture = texture ?? TEXTURES.MISSING;
+        this.texture = texture ?? TEXTURES.BLANK;
     }
 
     apply(gl, programInfo) {
@@ -51,7 +51,12 @@ class RenderObject {
     /** @param {Geometry} geom */
     setGeometry(geom) { this.geometry = geom; }
 
-    /** @param {Color} color */
+    /**
+     * Set the material's color to use.
+     * Will override the color of any geometry this material applies to.
+     * Use COLORS.NONE to keep the geometry's color unchanged.
+     * @param {Color} color 
+     */
     setMaterialColor(color) {
         const newMat = new Material({
             color: color,
@@ -60,7 +65,11 @@ class RenderObject {
         this.setMaterial(newMat);
     }
     
-    /** @param {WebGLTexture} text */
+    /**
+     * Set the material's texture to use.
+     * Use TEXTURES.BLANK when using only color.
+     * @param {WebGLTexture} text
+     */
     setMaterialTexture(text) {
         const newMat = new Material({
             color: this.material.color,

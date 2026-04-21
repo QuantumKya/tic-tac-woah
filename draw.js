@@ -7,6 +7,7 @@ import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
 import { makeAnnulus, makeCube, makeSphere } from "./shape_making.js";
+import { Button, Panel, TextUI } from "./ui.js";
 
 /** @typedef {{program: WebGLProgram, attribLocations: {vertexPosition: number, textureCoord: number, vertexColor: number}, uniformLocations: {projectionMatrix: number, modelViewMatrix: number, uSampler: number, uColor: number}}} ProgramInfo */
 /** @typedef {{position: WebGLBuffer, color: WebGLBuffer, indices: WebGLBuffer, indexCount: number }} BufferSet */
@@ -66,6 +67,24 @@ function makeShapes(gl) {
     cubeStuff.renderer.setMaterialTexture(TEXTURES.ITSFINALLYMINISHED);
     shapes.cube = cubeStuff.sides;
     renderers.cube = cubeStuff.renderer;
+
+
+
+    const textShape = new TextUI(
+        -3, 1,
+        "ABCDEFG",
+        1
+    );
+    shapes.texttest = textShape;
+    const panelShape = new Panel(
+        -3, 0, 7, 3
+    );
+    panelShape.poly.changeVertices(v => v[2] -= 0.01)
+    shapes.paneltest = panelShape;
+    const buttonShape = new Button(
+        0, -2, 5, 1, 'hello', ()=>{}, 0.1
+    );
+    shapes.buttontest = buttonShape;
 }
 
 
@@ -127,6 +146,16 @@ function draw(gl, programInfo) {
     for (const r of renderers.os) r.draw(gl, programInfo, changeyStuff);
 
     for (const s of renderers.sphere) s.draw(gl, programInfo, changeyStuff);
+    
+    const panelRenderer = shapes.paneltest.getRenderer();
+    panelRenderer.init(gl);
+    panelRenderer.draw(gl, programInfo, changeyStuff);
+    const textRenderer = shapes.texttest.getRenderer();
+    textRenderer.init(gl);
+    textRenderer.draw(gl, programInfo, changeyStuff);
+    const buttonRenderer = shapes.buttontest.getRenderer();
+    buttonRenderer.init(gl);
+    buttonRenderer.draw(gl, programInfo, changeyStuff);
 
     requestAnimationFrame(() => draw(gl, programInfo));
 
@@ -197,6 +226,7 @@ function main() {
     TEXTURES.X = loadTexture(gl, 'x.png');
     TEXTURES.O = loadTexture(gl, 'o.png');
     TEXTURES.PH = loadTexture(gl, 'faceholder.png');
+    TEXTURES.ALPHABET = loadTexture(gl, 'alphabet.png');
     TEXTURES.ITSFINALLYMINISHED = loadTexture(gl, 'minish.png');
 
     // ================================ CHANGES TO SHAPES ================================ //

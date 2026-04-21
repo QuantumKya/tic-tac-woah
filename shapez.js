@@ -119,7 +119,6 @@ class DrawnShape {
     constructor(...points) {
         this.vertices = points;
         this.color = COLORS.GRAY;
-        this.texture = TEXTURES.BLANK;
 
         //this.sortVerticesByAngle();
     }
@@ -135,15 +134,6 @@ class DrawnShape {
      */
     setColor(clr) {
         this.color = clr ?? COLORS.NONE;
-    }
-    
-    /**
-     * Set the shape's texture to use.
-     * Use TEXTURES.BLANK when using only color.
-     * @param {WebGLTexture} tex 
-     */
-    setTexture(tex) {
-        this.texture = tex ?? TEXTURES.MISSING;
     }
 
     /** @returns {Float32Array} */
@@ -226,6 +216,11 @@ class Polygon extends DrawnShape {
 
         const résultat = this.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));
         return résultat;
+    }
+
+    /** @param {((vec3) => void)} changer  */
+    changeVertices(changer) {
+        this.vertices.forEach(changer);
     }
 
     /** @returns {Plane} */
@@ -331,6 +326,11 @@ class Polygon extends DrawnShape {
 
     /** @returns {Float32Array} */
     getTextureBuffer() {
+        return this.textureBuffer ?? this.generateTextureBuffer();
+    }
+
+    /** @returns {Float32Array} */
+    generateTextureBuffer() {
         const polyplane = this.getPlane();
         if (!polyplane) return null;
 
@@ -361,6 +361,11 @@ class Polygon extends DrawnShape {
         }
 
         return new Float32Array(uvs);
+    }
+    
+    /** @param {Float32Array} buffer */
+    setTextureBuffer(buffer) {
+        this.textureBuffer = buffer;
     }
 }
 
@@ -493,7 +498,7 @@ class Quadrilateral extends Polygon {
         return [0, 1, 2, 0, 2, 3];
     }
 
-    getTextureBuffer() {
+    generateTextureBuffer() {
         const quadUV = new Float32Array([
             0, 0,
             1, 0,
@@ -505,10 +510,15 @@ class Quadrilateral extends Polygon {
 }
 
 class PolygonGroup extends DrawnShape {
-    /** @param {...Polygon} polys */
+    /** @param {...(Polygon|PolygonGroup)} polys */
     constructor(...polys) {
         super(...polys.flatMap(p => p.vertices));
-        this.polygons = polys;
+
+        this.polygons = [];
+        polys.forEach(p => {
+            if (p instanceof PolygonGroup) this.polygons.push(...p.polygons);
+            else if (p instanceof Polygon) this.polygons.push(p);
+        });
     }
 
     /** @returns {Float32Array} */
@@ -551,6 +561,11 @@ class PolygonGroup extends DrawnShape {
     }
     setColor(color) {
         this.polygons.forEach(p => p.setColor(color));
+    }
+
+    /** @param {((vec3) => vec3)} changer  */
+    changeVertices(changer) {
+        this.polygons.forEach(p => p.changeVertices(changer));
     }
 }
 
