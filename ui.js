@@ -23,26 +23,77 @@ class UI {
     }
 }
 
-class Panel {
+class UIObject {
     constructor(posx, posy, w, h) {
         this.pos = vec2.create();
         this.dim = vec2.create();
 
         this.setPosition(posx, posy);
-        this.setSize(w, h);
+        this.setDimensions(w, h);
 
         this.active = false;
-        this.color = COLORS.WHITE;
 
         this.childUI = [];
+        this.anchor = vec2.fromValues(0,0);
     }
 
     open() { this.active = true; }
     close() { this.active = false; }
 
+    /**
+     * Adds a UIObject to the child list.
+     * @param {UIObject} chobj The child object.
+     * @returns {number} The index of the new child in the children array.
+     */
+    addChild(chobj) { vec2.set(chobj.anchor, ...this.pos); this.childUI.push(chobj); return this.childUI.length - 1; }
+    /** @param {number} idx */
+    getChild(idx) { return this.childUI[idx]; }
+
     setPosition(x, y) { vec2.set(this.pos, x, y); }
+    setDimensions(w, h) { vec2.set(this.dim, w, h); }
+
+    /** @param {Color} clr */
+    setColor(clr) { this.color = clr; }
+
+    /** @param {vec2} pnt */
+    centerOn(pnt) { this.setPosition(pnt - this.dim[0]/2, pnt - this.dim[1]/2); }
+
+    /** @returns {Material} */
+    getMaterial() { return new Material({ color: this.color, texture: TEXTURES.BLANK }); }
+
+    /** @returns {RenderObject} */
+    getRenderer() {
+        const geom = Geometry.fromPolygon(this.poly);
+        const mat = this.getMaterial();
+        
+        return new RenderObject(
+            geom,
+            mat
+        );
+    }
+
+    draw(gl, programInfo, ...args) {
+        if (!this.active) return;
+
+        const polyrend = this.getRenderer();
+        polyrend.changeVertices(v => { v[0] += this.anchor[0]; v[1] += this.anchor[1]; });
+        polyrend.init(gl);
+        polyrend.draw(gl, programInfo, ...args);
+
+        for (const u of this.childUI) u.draw(gl, programInfo, ...args);
+    }
+}
+
+class Panel extends UIObject {
+    constructor(posx, posy, w, h) {
+        super(posx, posy, w, h);
+
+        this.setSize(w, h);
+        this.color = COLORS.WHITE;
+    }
+
     setSize(w, h) {
-        vec2.set(this.dim, w, h);
+        this.setDimensions(w, h);
 
         const rect = Quadrilateral.fromSides(
             vec3.fromValues(0, 0, 0),
@@ -56,25 +107,9 @@ class Panel {
 
         this.poly = rect;
     }
-
-    setColor(clr) { this.color = clr; }
-
-    /** @returns {Material} */
-    getMaterial() { return new Material({ color: this.color, texture: TEXTURES.BLANK }); }
-
-    /** @returns {RenderObject} */
-    getRenderer() {
-        const geoms = [this.poly, ...this.childUI.map(a=>a.poly)].map(Geometry.fromPolygon);
-        
-        const mat = this.getMaterial();
-        return new RenderObject(
-            Geometry.combineGeometries(...geoms),
-            mat
-        );
-    }
 }
 
-class TextUI extends Panel {
+class TextUI extends UIObject {
     constructor(posx, posy, message = '', fontSize = 0.01) {
         super(posx, posy, fontSize * message.length, fontSize);
 
@@ -105,19 +140,19 @@ class TextUI extends Panel {
         });
         this.poly = textgroup;
 
-        vec2.set(this.dim, this.fontSize * msg.length, this.fontSize);
+        this.setDimensions(this.fontSize * msg.length, this.fontSize);
     }
 
     /** @returns {Material} */
-    getMaterial() { return new Material({ texture: TEXTURES.ALPHABET }); }
+    getMaterial() { return new Material({ color: this.color, texture: TEXTURES.ALPHABET }); }
 }
 
-class Button extends TextUI {
+class Button extends Panel {
     /**
      * Creates a Button.
      * 
-     * A Button object, in the context of other UI classes, encapsulates the text displayed on the button.
-     * The colored panel behind said text is treated as the Button object's primary child object.
+     * A Button object, in the context of other UI classes, encapsulates the panel (colored rectangle) of the button.
+     * The text in front of said panel is treated as the Button object's primary child object. See `Button.textLabel`.
      * @param {number} posx The X coordinate of the button's top-left corner.
      * @param {number} posy The Y coordinate of the button's top-left corner.
      * @param {number} w The width of the button.
@@ -126,24 +161,33 @@ class Button extends TextUI {
      * @param {(() => void)} action A function for the button to execute upon clicking it.
      * @param {number} [pad=0.01] The distance between the text of the button and its edge.
      */
-    constructor(posx, posy, w, h, message, action, pad = 0.01) {
+    constructor(posx, posy, w, h, message, action, pad = 0.05) {
+        super(posx, posy, w, h);
+
         const inW = w - 2*pad, inH = h - 2*pad;
         const wFontSize = inW/message.length;
         const fontSize = Math.min(wFontSize, inH);
-        super(posx + pad, posy + pad, message, fontSize);
         
+        this.padding = pad;
         this.action = action;
 
-        const backPanel = new Panel(...this.pos, w, h);
-        backPanel.poly.changeVertices(v => v[2] -= 0.01);
-        backPanel.setColor(COLORS.WHITE);
-        this.childUI.push(backPanel);
+        const textLabel = new TextUI(this.posx + pad, this.posy + pad, message, fontSize);
+        this.childUI.push(textLabel);
     }
 
-    /** @param {string} msg  */
+    /** @returns {TextUI} */
+    get textLabel() { return this.childUI[0]; }
+
+    /** @param {string} msg */
     setMessage(msg) {
-        super.setMessage(msg);
+        const fs = this.textLabel.fontSize;
+        this.setDimensions(fs * msg.length + 2*this.padding, fs + 2*this.padding);
+
+        this.textLabel.setMessage(msg);
     }
+
+    setPadding(pad) { this.padding = pad; }
+    setAction(act) { this.action = act; }
 }
 
 

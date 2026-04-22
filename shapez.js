@@ -563,7 +563,7 @@ class PolygonGroup extends DrawnShape {
         this.polygons.forEach(p => p.setColor(color));
     }
 
-    /** @param {((vec3) => vec3)} changer  */
+    /** @param {((vec3) => void)} changer */
     changeVertices(changer) {
         this.polygons.forEach(p => p.changeVertices(changer));
     }

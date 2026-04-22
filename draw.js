@@ -79,7 +79,7 @@ function makeShapes(gl) {
     const panelShape = new Panel(
         -3, 0, 7, 3
     );
-    panelShape.poly.changeVertices(v => v[2] -= 0.01)
+    panelShape.poly.changeVertices(v => v[2] -= 0.01);
     shapes.paneltest = panelShape;
     const buttonShape = new Button(
         0, -2, 5, 1, 'hello', ()=>{}, 0.1
@@ -147,15 +147,12 @@ function draw(gl, programInfo) {
 
     for (const s of renderers.sphere) s.draw(gl, programInfo, changeyStuff);
     
-    const panelRenderer = shapes.paneltest.getRenderer();
-    panelRenderer.init(gl);
-    panelRenderer.draw(gl, programInfo, changeyStuff);
-    const textRenderer = shapes.texttest.getRenderer();
-    textRenderer.init(gl);
-    textRenderer.draw(gl, programInfo, changeyStuff);
-    const buttonRenderer = shapes.buttontest.getRenderer();
-    buttonRenderer.init(gl);
-    buttonRenderer.draw(gl, programInfo, changeyStuff);
+    shapes.paneltest.open();
+    shapes.texttest.open();
+    shapes.texttest.setColor(COLORS.RED);
+    shapes.paneltest.draw(gl, programInfo, changeyStuff);
+    shapes.texttest.draw(gl, programInfo, changeyStuff);
+    shapes.buttontest.draw(gl, programInfo, changeyStuff);
 
     requestAnimationFrame(() => draw(gl, programInfo));
 

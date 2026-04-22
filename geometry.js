@@ -31,19 +31,19 @@ class Material {
 class RenderObject {
     /** @param {Geometry} geom @param {Material} material  */
     constructor(geom, material) {
-        this.geom = geom;
+        this.geometry = geom;
         this.material = material;
     }
 
     /** @param {WebGLRenderingContext} gl */
     init(gl) {
-        this.geom.makeBuffers(gl);
+        this.geometry.makeBuffers(gl);
     }
 
     /** @param {WebGLRenderingContext} gl @param {import("./draw.js").ProgramInfo} programInfo @param {...*} args  */
     draw(gl, programInfo, ...args) {
         this.material.apply(gl, programInfo);
-        this.geom.draw(gl, programInfo, ...args);
+        this.geometry.draw(gl, programInfo, ...args);
     }
 
     /** @param {Material} material */
@@ -76,6 +76,11 @@ class RenderObject {
             texture: text
         });
         this.setMaterial(newMat);
+    }
+
+    /** @param {((vec3) => void)} changer */
+    changeVertices(changer) {
+        this.geometry.changeVertices(changer);
     }
 }
 
@@ -152,6 +157,15 @@ class Geometry {
             new Float32Array(colors),
             new Float32Array(texcoords)
         );
+    }
+
+    /** @param {((vec3) => void)} changer */
+    changeVertices(changer) {
+        for (let i = 0; i < this.positions.length; i += 3) {
+            const v = vec3.fromValues(...this.positions.slice(i, i+3));
+            changer(v);
+            v.forEach((a,ii) => this.positions[i+ii] = a);
+        }
     }
 }
 
