@@ -11,9 +11,9 @@ void main() {
 
     // material color overrides vertex color
     if (u_color.r >= 0.0) {
-        gl_FragColor = vec4(tex.rgb * u_color.rgb, tex.a);
+        gl_FragColor = vec4(tex.rgb * u_color.rgb, tex.a * u_color.a);
     }
     else {
-        gl_FragColor = vec4(tex.rgb * vColor.rgb, tex.a);
+        gl_FragColor = vec4(tex.rgb * vColor.rgb, tex.a * vColor.a);
     }
 }

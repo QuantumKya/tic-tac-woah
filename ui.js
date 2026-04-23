@@ -8,6 +8,8 @@ import { TEXTURES } from "./textures.js";
 class UI {
     /** @param {Camera} camera  */
     constructor(camera) {
+        this.forwardDir = DIRECTIONS.MZ;
+
         this.updateWorld(camera);
     }
     
@@ -35,17 +37,25 @@ class UIObject {
 
         this.childUI = [];
         this.anchor = vec2.fromValues(0,0);
+        this.zIndex = 0;
     }
 
-    open() { this.active = true; }
-    close() { this.active = false; }
+    open() { this.active = true; this.childUI.forEach(u => u.open()); }
+    close() { this.active = false; this.childUI.forEach(u => u.close()); }
 
     /**
-     * Adds a UIObject to the child list.
+     * Adds a UIObject to the child list.  
+     * Child's z-index will be automatically set to one higher than the parent's.
      * @param {UIObject} chobj The child object.
      * @returns {number} The index of the new child in the children array.
      */
-    addChild(chobj) { vec2.set(chobj.anchor, ...this.pos); this.childUI.push(chobj); return this.childUI.length - 1; }
+    addChild(chobj) {
+        chobj.setAnchor(this.pos);
+        chobj.setZIndex(this.zIndex+1);
+
+        this.childUI.push(chobj);
+        return this.childUI.length - 1;
+    }
     /** @param {number} idx */
     getChild(idx) { return this.childUI[idx]; }
 
@@ -56,7 +66,7 @@ class UIObject {
     setColor(clr) { this.color = clr; }
 
     /** @param {vec2} pnt */
-    centerOn(pnt) { this.setPosition(pnt - this.dim[0]/2, pnt - this.dim[1]/2); }
+    centerOn(pnt) { this.setPosition(pnt[0] - this.dim[0]/2, pnt[1] - this.dim[1]/2); }
 
     /** @returns {Material} */
     getMaterial() { return new Material({ color: this.color, texture: TEXTURES.BLANK }); }
@@ -66,21 +76,51 @@ class UIObject {
         const geom = Geometry.fromPolygon(this.poly);
         const mat = this.getMaterial();
         
-        return new RenderObject(
-            geom,
-            mat
-        );
+        const rend = new RenderObject(geom, mat);
+        rend.changeVertices(v => {
+            vec3.multiply(v, v, vec3.fromValues(...this.dim, 1));
+
+            const comb = vec2.create(); vec2.add(comb, this.anchor, this.pos);
+            vec3.add(v, v,
+                vec3.fromValues(...comb, this.zIndex*0.01)
+            );
+        });
+        return rend;
     }
 
     draw(gl, programInfo, ...args) {
         if (!this.active) return;
 
         const polyrend = this.getRenderer();
-        polyrend.changeVertices(v => { v[0] += this.anchor[0]; v[1] += this.anchor[1]; });
         polyrend.init(gl);
         polyrend.draw(gl, programInfo, ...args);
 
         for (const u of this.childUI) u.draw(gl, programInfo, ...args);
+    }
+
+    pushBack(z) {
+        this.zIndex -= z;
+        this.childUI.forEach(u => u.pushBack(z));
+    }
+    pushForth(z) {
+        this.zIndex = z;
+        this.childUI.forEach(u => u.pushForth(z));
+    }
+    setZIndex(z) {
+        this.childUI.forEach(u => {
+            const diff = u.zIndex - this.zIndex;
+            u.setZIndex(z + diff);
+        });
+        this.zIndex = z;
+    }
+
+    setAnchor(anch) {
+        this.childUI.forEach(u => {
+            const diff = vec2.create(); vec2.subtract(diff, u.anchor, this.anchor);
+            vec2.add(diff, diff, anch);
+            u.setAnchor(diff);
+        });
+        this.anchor = anch;
     }
 }
 
@@ -95,17 +135,10 @@ class Panel extends UIObject {
     setSize(w, h) {
         this.setDimensions(w, h);
 
-        const rect = Quadrilateral.fromSides(
+        this.poly = Quadrilateral.fromSides(
             vec3.fromValues(0, 0, 0),
             DIRECTIONS.X, DIRECTIONS.Y
         );
-        
-        rect.changeVertices(v => {
-            vec3.multiply(v, v, vec3.fromValues(...this.dim, 1));
-            vec3.add(v, v, vec3.fromValues(...this.pos, 0));
-        });
-
-        this.poly = rect;
     }
 }
 
@@ -135,12 +168,9 @@ class TextUI extends UIObject {
         });
 
         const textgroup = new PolygonGroup(...sqs);
-        textgroup.changeVertices(v => {
-            vec3.scaleAndAdd(v, vec3.fromValues(...this.pos, 0), v, this.fontSize);
-        });
         this.poly = textgroup;
 
-        this.setDimensions(this.fontSize * msg.length, this.fontSize);
+        this.setDimensions(this.fontSize, this.fontSize);
     }
 
     /** @returns {Material} */
@@ -164,15 +194,16 @@ class Button extends Panel {
     constructor(posx, posy, w, h, message, action, pad = 0.05) {
         super(posx, posy, w, h);
 
-        const inW = w - 2*pad, inH = h - 2*pad;
-        const wFontSize = inW/message.length;
-        const fontSize = Math.min(wFontSize, inH);
-        
         this.padding = pad;
         this.action = action;
 
-        const textLabel = new TextUI(this.posx + pad, this.posy + pad, message, fontSize);
-        this.childUI.push(textLabel);
+        const inW = w - 2*pad, inH = h - 2*pad;
+        const wFontSize = inW/message.length;
+        const fontSize = Math.min(wFontSize, inH);
+
+        const textLabel = new TextUI(pad, pad, message, fontSize);
+        this.addChild(textLabel);
+        this.setMessage(message);
     }
 
     /** @returns {TextUI} */

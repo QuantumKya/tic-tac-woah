@@ -6,7 +6,7 @@ import { Polygon, PolygonGroup, Quadrilateral } from "./shapez.js";
 /**
  * @param {vec3} center The center of the sphere.
  * @param {number} rad The radius of the sphere.
- * @param {((number, number) => Color)} colorF A function to determine the color of a sphere segment
+ * @param {((number, number) => Color)} colorF A function to determine the color of a sphere segment. Takes in theta section and phi section as arguments.
  * @returns {{ shapes: Array<Polygon>, renderers: Array<RenderObject> }}
  */
 function makeSphere(center, rad, colorF, azimuthalParts = 1, verticalParts = 1) {
@@ -93,38 +93,84 @@ function makeSphere(center, rad, colorF, azimuthalParts = 1, verticalParts = 1) 
 /**
  * @param {vec3} center The center of the cube.
  * @param {number} sideLength The side length of the cube.
- * @param {((number) => Color)} colorF A function to determine the color of a face.
+ * @param {{ xy: Color, mxy: Color, yz: Color, myz: Color, xz: Color, mxz: Color }} colorF An object mapping faces to desired colors. Entry names are the names of the plane the corresponding face sits on (e.g., "xy", where "mxy" is its opposite face).
  * @returns {{ sides: Array<Polygon>, renderer: RenderObject }}
  */
 function makeCube(center, sideLength, colorF) {
-    const cubeRadius = sideLength;
+    const cubeRadius = sideLength/2;
     const scaledX = vec3.scale(vec3.create(), DIRECTIONS.X, cubeRadius*2);
     const scaledY = vec3.scale(vec3.create(), DIRECTIONS.Y, cubeRadius*2);
     const scaledZ = vec3.scale(vec3.create(), DIRECTIONS.Z, cubeRadius*2);
-    const scaledMX = vec3.scale(vec3.create(), DIRECTIONS.MX, cubeRadius*2);
-    const scaledMY = vec3.scale(vec3.create(), DIRECTIONS.MY, cubeRadius*2);
-    const scaledMZ = vec3.scale(vec3.create(), DIRECTIONS.MZ, cubeRadius*2);
-
-    const halfXYZ = vec3.scaleAndAdd(vec3.create(), center, DIRECTIONS.XYZ, cubeRadius);
     const halfMXYZ = vec3.scaleAndAdd(vec3.create(), center, DIRECTIONS.XYZ, -cubeRadius);
 
-    // Make cube
-    const f1 = Quadrilateral.fromSides(halfMXYZ, scaledX, scaledY);
-    const f2 = Quadrilateral.fromSides(halfMXYZ, scaledX, scaledZ);
-    const f3 = Quadrilateral.fromSides(halfMXYZ, scaledY, scaledZ);
-    const f4 = Quadrilateral.fromSides(halfXYZ, scaledMX, scaledMY);
-    const f5 = Quadrilateral.fromSides(halfXYZ, scaledMX, scaledMZ);
-    const f6 = Quadrilateral.fromSides(halfXYZ, scaledMY, scaledMZ);
-    const cubeFaces = [f1,f2,f3,f4,f5,f6];
-    cubeFaces.forEach((f,i) => f.setColor(colorF(i)));
+    return makeParallelopiped(halfMXYZ, scaledX, scaledY, scaledZ, colorF);
+}
 
-    const cubeGeoms = cubeFaces.map(Geometry.fromPolygon);
-    const cubeGeometry = Geometry.combineGeometries(...cubeGeoms);
+/**
+ * Create a renderer and a shapeset for an arbitrary parallelopiped.  
+ * If any two edges are collinear, or if all three are coplanar, only one face will be returned due to degeneracy.
+ * @param {vec3} corner A corner of the parallelopiped, from which the edges are cast.
+ * @param {vec3} edge1 One edge of the parallelopiped.
+ * @param {vec3} edge2 Another edge of the parallelopiped.
+ * @param {vec3} edge3 The final edge of the parallelopiped.
+ * @param {{ xy: Color, mxy: Color, yz: Color, myz: Color, xz: Color, mxz: Color }} colorF An object mapping faces to desired colors. Entry names are the names of the plane the corresponding face sits on (e.g., "xy", where "mxy" is its opposite face).
+ * @returns {{ sides: Array<Polygon>, renderer: RenderObject }}
+ */
+function makeParallelopiped(corner, edge1, edge2, edge3, colorF) {
+    const edges = [edge1, edge2, edge3];
+    const temp = vec3.create();
 
-    const cubeMaterial = Material.NONE;
-    const cubeRender = new RenderObject(cubeGeometry, cubeMaterial);
+    // triple product check!!! Thank you Ms. Higgy for Calc BC knowlegde :)
+    vec3.cross(temp, edge1, edge2);
+    if (Math.abs(vec3.dot(temp, edge3)) < 1e-6) {
+        // degenerate case — hope there's a valid parallelogram somewhere!
+        for (let i = 0; i < 3; i++) for (let j = i+1; j < 3; j++) {
+            vec3.cross(temp, edges[i], edges[j]);
+            if (vec3.length(temp) < 1e-6) continue;
 
-    return { shapes: cubeFaces, renderer: cubeRender };
+            const poly = Quadrilateral.fromSides(corner, edges[i], edges[j]);
+            return {
+                sides: [poly],
+                renderer: new RenderObject(Geometry.fromPolygon(poly), new Material({}))
+            };
+        }
+        return null;
+    }
+
+
+
+    // actual SHAPE GENERATION
+    const farPoint = vec3.create();
+    vec3.add(farPoint, corner, edge1);
+    vec3.add(farPoint, farPoint, edge2);
+    vec3.add(farPoint, farPoint, edge3);
+
+    const closeSides = edges.map((_,i,a) => {
+        const rem = a.filter((_,k)=>k!==i);
+        const poly = Quadrilateral.fromSides(corner, ...rem);
+
+        const keystr = [...'xyz'].filter((_,k)=>k!==i).join('');
+        poly.setColor(colorF[keystr]);
+        return poly;
+    });
+    const farSides = edges.map((_,i,a) => {
+        const rem = a.filter((_,k)=>k!==i)
+            .map(e => vec3.negate(vec3.create(), e));
+        const poly = Quadrilateral.fromSides(farPoint, ...rem);
+
+        const keystr = 'm' + [...'xyz'].filter((_,k)=>k!==i).join('');
+        poly.setColor(colorF[keystr]);
+        return poly;
+    });
+
+
+    const sides = [...closeSides, ...farSides];
+
+    const geom = Geometry.fromPolygons(...sides);
+    const mat = Material.NONE;
+    const renderer = new RenderObject(geom, mat);
+
+    return { sides, renderer };
 }
 
 /**
@@ -189,5 +235,5 @@ function makeAnnulus(center, radius, innerRows, outerRows, slices, colorF) {
 }
 
 export {
-    makeSphere, makeCube, makeAnnulus
+    makeSphere, makeCube, makeAnnulus, makeParallelopiped
 }

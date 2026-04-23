@@ -1,6 +1,7 @@
 import { Color, COLORS } from "./color.js";
 import { drawScene } from "./draw-scene.js";
 import { initBuffers } from "./init-buffers.js";
+import { PolygonGroup } from "./shapez.js";
 import { TEXTURES } from "./textures.js";
 
 class Material {
@@ -9,7 +10,7 @@ class Material {
      */
     constructor({ color = null, texture = null } = {}) {
         this.color = color ?? COLORS.NONE;
-        this.texture = texture ?? TEXTURES.BLANK;
+        this.texture = texture ?? TEXTURES.MISSING;
     }
 
     apply(gl, programInfo) {
@@ -156,6 +157,12 @@ class Geometry {
             new Uint16Array(indices),
             new Float32Array(colors),
             new Float32Array(texcoords)
+        );
+    }
+
+    static fromPolygons(...polys) {
+        return Geometry.fromPolygon(
+            new PolygonGroup(...polys)
         );
     }
 

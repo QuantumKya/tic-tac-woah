@@ -512,13 +512,14 @@ class Quadrilateral extends Polygon {
 class PolygonGroup extends DrawnShape {
     /** @param {...(Polygon|PolygonGroup)} polys */
     constructor(...polys) {
-        super(...polys.flatMap(p => p.vertices));
-
-        this.polygons = [];
+        const polygons = [];
         polys.forEach(p => {
-            if (p instanceof PolygonGroup) this.polygons.push(...p.polygons);
-            else if (p instanceof Polygon) this.polygons.push(p);
+            if (p instanceof PolygonGroup) polygons.push(...p.polygons);
+            else if (p instanceof Polygon) polygons.push(p);
         });
+
+        super(...polygons.flatMap(p => p.vertices));
+        this.polygons = polygons;
     }
 
     /** @returns {Float32Array} */
@@ -552,7 +553,7 @@ class PolygonGroup extends DrawnShape {
     /** @returns {Float32Array} */
     getTextureBuffer() {
         return new Float32Array(
-            this.polygons.flatMap(p => [...p.getTextureBuffer()])
+            this.polygons.flatMap(p => [...(p.getTextureBuffer() ?? new Float32Array((p.vertices.length/3)*2))])
         );
     }
 

@@ -6,7 +6,7 @@ import { getCamMove } from "./input.js";
 import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
-import { makeAnnulus, makeCube, makeSphere } from "./shape_making.js";
+import { makeAnnulus, makeCube, makeParallelopiped, makeSphere } from "./shape_making.js";
 import { Button, Panel, TextUI } from "./ui.js";
 
 /** @typedef {{program: WebGLProgram, attribLocations: {vertexPosition: number, textureCoord: number, vertexColor: number}, uniformLocations: {projectionMatrix: number, modelViewMatrix: number, uSampler: number, uColor: number}}} ProgramInfo */
@@ -14,9 +14,9 @@ import { Button, Panel, TextUI } from "./ui.js";
 
 // ================================ STUFF THAT CHANGES ================================ //
 let cubeRotation = 0.0;
-let cameraRho = 3.0;
-let cameraTheta = 0;
-let cameraPhi = Math.PI / 2;
+let cameraRho = 7.5;
+let cameraTheta = Math.PI / 3;
+let cameraPhi = Math.PI * 5 / 12;
 
 shaderSet.default = await loadShaderFiles('vertex.glsl', 'fragment.glsl');
 shaderSet.shaky = await loadShaderFiles('shaky.glsl', 'fragment.glsl');
@@ -25,6 +25,7 @@ const changeyStuff = {
     FRAMENUMBER: 0,
     shakeRandom: vec2.create(),
 };
+const floorLevel = -3;
 
 const currentShader = shaderSet.shaky;
 const shapes = {
@@ -52,39 +53,65 @@ function makeShapes(gl) {
     shapes.annulus = annulusStuff.shapes;
     renderers.annulus = annulusStuff.renderers;
 
-
-    const sphereStuff = makeSphere(vec3.fromValues(0,0,0), 0.5, () => COLORS.RED);
-    sphereStuff.renderers.forEach(sr => sr.init(gl));
-    shapes.sphere = sphereStuff.shapes;
-    renderers.sphere = sphereStuff.renderers;
-
     const cubeStuff = makeCube(
-        vec3.fromValues(0,0,0),
-        7.5,
-        (i) => [COLORS.RED, COLORS.BLUE, COLORS.GREEN, COLORS.YELLOW, COLORS.CYAN, COLORS.MAGENTA][i]
+        vec3.fromValues(0, 75/2 + floorLevel, 0),
+        75,
+        // { xy: COLORS.RED, mxy: COLORS.BLUE, yz: COLORS.GREEN, myz: COLORS.YELLOW, xz: COLORS.CYAN, mxz: COLORS.MAGENTA }
+        { xy: COLORS.WHITE, mxy: COLORS.WHITE, yz: COLORS.WHITE, myz: COLORS.WHITE, xz: COLORS.GRAY, mxz: COLORS.WHITE }
     );
     cubeStuff.renderer.init(gl);
-    cubeStuff.renderer.setMaterialTexture(TEXTURES.ITSFINALLYMINISHED);
+    // cubeStuff.renderer.setMaterialTexture(TEXTURES.ITSFINALLYMINISHED);
     shapes.cube = cubeStuff.sides;
     renderers.cube = cubeStuff.renderer;
 
 
+    const tableColor = Color.lerpColors(COLORS.WHITE, COLORS.GRAY, 0.6);
+    const tableUnder = Color.lerpColors(COLORS.WHITE, COLORS.GRAY, 0.8);
+    const tableUmbra = Color.lerpColors(COLORS.WHITE, COLORS.GRAY, 0.9);
+    const table = makeParallelopiped(
+        vec3.fromValues(-1.35, floorLevel, 2.9),
+        vec3.fromValues(0.8, 0, 1),
+        vec3.fromValues(1, 0, -0.8),
+        vec3.fromValues(0, 2.5, 0),
+        { xy: tableUnder, mxy: tableColor, yz: tableColor, myz: tableUmbra, xz: tableColor, mxz: tableUnder }
+    );
+    const sittingX = Quadrilateral.fromSides(
+        vec3.fromValues(-0.6, floorLevel + 2.52, 3),
+        vec3.fromValues(0.5, 0, 0.3),
+        vec3.fromValues(0.3, 0, -0.5)
+    );
+    const sittingO = Quadrilateral.fromSides(
+        vec3.fromValues(-1.2, floorLevel + 2.51, 3.19),
+        vec3.fromValues(0.5, 0, 0.3),
+        vec3.fromValues(0.3, 0, -0.5)
+    );
+    const rendO = new RenderObject(Geometry.fromPolygon(sittingO), new Material({ color: COLORS.BLUE, texture: TEXTURES.O }));
+    const rendX = new RenderObject(Geometry.fromPolygon(sittingX), new Material({ color: COLORS.RED, texture: TEXTURES.X }));
+
+    table.renderer.init(gl);
+    rendO.init(gl);
+    rendX.init(gl);
+
+    shapes.table = table.sides;
+    renderers.table = table.renderer;
+    renderers.tableO = rendO; renderers.tableX = rendX;
+
 
     const textShape = new TextUI(
-        -3, 1,
-        "ABCDEFG",
-        1
+        0.125, 0.25,
+        "Hello,TicTacWoah!",
+        0.4
     );
-    shapes.texttest = textShape;
+    textShape.setColor(COLORS.CYAN);
     const panelShape = new Panel(
-        -3, 0, 7, 3
+        0, 0, 7, 1
     );
-    panelShape.poly.changeVertices(v => v[2] -= 0.01);
+    panelShape.centerOn(vec2.fromValues(0, 1.5));
+    panelShape.setColor(COLORS.BROWN);
+    panelShape.addChild(textShape);
+    panelShape.open();
+
     shapes.paneltest = panelShape;
-    const buttonShape = new Button(
-        0, -2, 5, 1, 'hello', ()=>{}, 0.1
-    );
-    shapes.buttontest = buttonShape;
 }
 
 
@@ -120,12 +147,15 @@ function draw(gl, programInfo) {
 
     cameraRho -= moveCommand[2] * 0.05;
     cameraRho = Math.max(0.75, cameraRho);
+    cameraRho = Math.min(15, cameraRho);
     
     
 
     let camX = cameraRho * Math.sin(cameraPhi) * Math.cos(cameraTheta);
     let camY = cameraRho * Math.cos(cameraPhi);
     let camZ = cameraRho * Math.sin(cameraPhi) * Math.sin(cameraTheta);
+
+    camY = Math.max(0.5 + floorLevel, camY);
 
     [camX, camY, camZ] = unNoise(camX, camY, camZ);
 
@@ -139,20 +169,20 @@ function draw(gl, programInfo) {
     });
 
     // ================================ DRAW & LOOP ================================ //
-    
-    renderers.cube.draw(gl, programInfo, changeyStuff);
-    for (const r of renderers.annulus) r.draw(gl, programInfo, changeyStuff);
-    for (const r of renderers.xs) r.draw(gl, programInfo, changeyStuff);
-    for (const r of renderers.os) r.draw(gl, programInfo, changeyStuff);
 
-    for (const s of renderers.sphere) s.draw(gl, programInfo, changeyStuff);
+    const dr = (r) => r.draw(gl, programInfo, changeyStuff);
+
     
-    shapes.paneltest.open();
-    shapes.texttest.open();
-    shapes.texttest.setColor(COLORS.RED);
-    shapes.paneltest.draw(gl, programInfo, changeyStuff);
-    shapes.texttest.draw(gl, programInfo, changeyStuff);
-    shapes.buttontest.draw(gl, programInfo, changeyStuff);
+    dr(renderers.cube);
+    dr(renderers.table);
+    dr(renderers.tableO);
+    dr(renderers.tableX);
+    
+    renderers.annulus.forEach(dr);
+    renderers.xs.forEach(dr);
+    renderers.os.forEach(dr);
+    
+    dr(shapes.paneltest);
 
     requestAnimationFrame(() => draw(gl, programInfo));
 

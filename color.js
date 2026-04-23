@@ -106,6 +106,7 @@ const COLORS = {
     PINK: new Color(1.0, 0.5, 0.5, 1.0),
     BROWN: new Color(0.5, 0.25, 0.0, 1.0),
 
+    TRANSPARENT: new Color(1.0, 1.0, 1.0, 0.0),
     NONE: new Color(-1.0, -1.0, -1.0, -1.0)
 }
 
