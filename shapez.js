@@ -1,7 +1,7 @@
 import { avgArray, avgPoints, DIRECTIONS, getVecInBasis, projectPointOnPlane } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
 import { TEXTURES } from "./textures.js";
-import { getMousePos } from "./input.js";
+import { inputStuff } from "./input.js";
 import Camera from "./camera.js";
 
 class Plane {
@@ -211,7 +211,7 @@ class Polygon extends DrawnShape {
 
     /** @param {Camera} cam  */
     isHoveredUpon(cam) {
-        const mP = getMousePos();
+        const mP = inputStuff.getMousePos();
         const { origin: rayOrigin, dir: rayDir } = cam.getRaycastFromMouse(mP);
 
         const résultat = this.constituentTriangles.some(tri => tri.doesRayIntersect(rayOrigin, rayDir));

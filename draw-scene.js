@@ -2,9 +2,9 @@
  * @param {WebGLRenderingContext} gl 
  * @param {import("./draw.js").ProgramInfo} programInfo 
  * @param {import("./draw.js").BufferSet} buffers 
+ * @param {boolean} isUI 
  */
-function drawScene(gl, programInfo, buffers, changeyStuff) {
-    // The caller is responsible for clearing the canvas once per frame.
+function drawScene(gl, programInfo, buffers, isUI, changeyStuff) {
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
     gl.depthFunc(gl.LEQUAL); // Near things obscure far things
 
@@ -41,6 +41,11 @@ function drawScene(gl, programInfo, buffers, changeyStuff) {
         programInfo.uniformLocations.modelViewMatrix,
         false,
         modelViewMatrix,
+    );
+
+    // ui check supplier
+    gl.uniform1i(
+        programInfo.uniformLocations.uiFlag, Number(isUI)
     );
 
     gl.uniform2f(

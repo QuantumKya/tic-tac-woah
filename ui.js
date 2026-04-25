@@ -1,43 +1,29 @@
 import Camera from "./camera.js";
-import { COLORS } from "./color.js";
+import { Color, COLORS } from "./color.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
+import { cHeight, cWidth, inputStuff } from "./input.js";
 import { DIRECTIONS } from "./math_stuff.js";
 import { PolygonGroup, Quadrilateral } from "./shapez.js";
 import { TEXTURES } from "./textures.js";
-
-class UI {
-    /** @param {Camera} camera  */
-    constructor(camera) {
-        this.forwardDir = DIRECTIONS.MZ;
-
-        this.updateWorld(camera);
-    }
-    
-    /** @param {Camera} cam */
-    updateWorld(cam) {
-        const vm = cam.viewMatrix;
-        const invVM = mat4.create(); mat4.invert(invVM, vm);
-        
-        const forward = vec4.fromValues(0, 0, 1, 1);
-        vec4.transform(forward, forward, invVM);
-
-        this.forwardDir = forward;
-    }
-}
 
 class UIObject {
     constructor(posx, posy, w, h) {
         this.pos = vec2.create();
         this.dim = vec2.create();
 
-        this.setPosition(posx, posy);
-        this.setDimensions(w, h);
-
         this.active = false;
-
+        
+        this.parent = null;
         this.childUI = [];
         this.anchor = vec2.fromValues(0,0);
         this.zIndex = 0;
+        
+        this.setPosition(posx, posy);
+        this.setDimensions(w, h);
+    }
+
+    get center() {
+        return vec2.fromValues(this.pos[0] + this.dim[0] / 2, this.pos[1] + this.dim[1] / 2);
     }
 
     open() { this.active = true; this.childUI.forEach(u => u.open()); }
@@ -50,6 +36,7 @@ class UIObject {
      * @returns {number} The index of the new child in the children array.
      */
     addChild(chobj) {
+        chobj.parent = this;
         chobj.setAnchor(this.pos);
         chobj.setZIndex(this.zIndex+1);
 
@@ -59,31 +46,41 @@ class UIObject {
     /** @param {number} idx */
     getChild(idx) { return this.childUI[idx]; }
 
-    setPosition(x, y) { vec2.set(this.pos, x, y); }
+    setPosition(x, y) {
+        vec2.set(this.pos, x, y);
+        this.childUI.forEach(u => u.setAnchor(this.pos));
+    }
     setDimensions(w, h) { vec2.set(this.dim, w, h); }
 
     /** @param {Color} clr */
     setColor(clr) { this.color = clr; }
 
     /** @param {vec2} pnt */
-    centerOn(pnt) { this.setPosition(pnt[0] - this.dim[0]/2, pnt[1] - this.dim[1]/2); }
+    centerOn(pnt) {
+        if (!this.parent) this.setPosition(pnt[0] - this.dim[0]/2, pnt[1] - this.dim[1]/2);
+        else this.setPosition(pnt[0] - this.parent.pos[0] - this.dim[0]/2, pnt[1] - this.parent.pos[1] - this.dim[1]/2);
+    }
 
     /** @returns {Material} */
     getMaterial() { return new Material({ color: this.color, texture: TEXTURES.BLANK }); }
 
     /** @returns {RenderObject} */
-    getRenderer() {
+    getRenderer(asUI = true) {
         const geom = Geometry.fromPolygon(this.poly);
         const mat = this.getMaterial();
         
-        const rend = new RenderObject(geom, mat);
+        const rend = new RenderObject(geom, mat, asUI);
         rend.changeVertices(v => {
             vec3.multiply(v, v, vec3.fromValues(...this.dim, 1));
 
-            const comb = vec2.create(); vec2.add(comb, this.anchor, this.pos);
-            vec3.add(v, v,
-                vec3.fromValues(...comb, this.zIndex*0.01)
-            );
+            const comb = vec2.create(); vec2.add(comb, this.pos, this.anchor);
+            vec3.set(v, v[0] + comb[0], v[1] + comb[1], this.zIndex*0.01);
+
+            if (asUI) {
+                const tx = (x) => 2*x-1;
+                const ty = (y) => 1-2*y;
+                vec3.set(v, tx(v[0]), ty(v[1]), -v[2]);
+            }
         });
         return rend;
     }
@@ -98,12 +95,22 @@ class UIObject {
         for (const u of this.childUI) u.draw(gl, programInfo, ...args);
     }
 
+    drawInWorld(gl, programInfo, ...args) {
+        if (!this.active) return;
+
+        const polyrend = this.getRenderer(false);
+        polyrend.init(gl);
+        polyrend.draw(gl, programInfo, ...args);
+
+        for (const u of this.childUI) u.drawInWorld(gl, programInfo, ...args);
+    }
+
     pushBack(z) {
         this.zIndex -= z;
         this.childUI.forEach(u => u.pushBack(z));
     }
     pushForth(z) {
-        this.zIndex = z;
+        this.zIndex += z;
         this.childUI.forEach(u => u.pushForth(z));
     }
     setZIndex(z) {
@@ -140,6 +147,17 @@ class Panel extends UIObject {
             DIRECTIONS.X, DIRECTIONS.Y
         );
     }
+
+    setBorder(pad, color = COLORS.BLACK) {
+        const borderBack = new Panel(
+            0, 0, this.dim[0] + 2*pad, this.dim[1] + 2*pad
+        );
+
+        borderBack.centerOn(this.center);
+        borderBack.setColor(color);
+        const idx = this.addChild(borderBack);
+        borderBack.pushBack(2);
+    }
 }
 
 class TextUI extends UIObject {
@@ -156,10 +174,12 @@ class TextUI extends UIObject {
     /** @param {string} msg */
     setMessage(msg) {
         const sqs = [];
+        const ml = msg.length;
         [...msg].forEach((c, i) => {
             const sq = Quadrilateral.fromSides(
-                vec3.fromValues(i, 0, 0),
-                DIRECTIONS.X, DIRECTIONS.Y
+                vec3.fromValues(i/ml, 0, 0),
+                vec3.fromValues(1/ml, 0, 0),
+                DIRECTIONS.Y
             );
             
             const charUV = getLetterUV(c);
@@ -170,7 +190,7 @@ class TextUI extends UIObject {
         const textgroup = new PolygonGroup(...sqs);
         this.poly = textgroup;
 
-        this.setDimensions(this.fontSize, this.fontSize);
+        this.setDimensions(ml * this.fontSize, this.fontSize);
     }
 
     /** @returns {Material} */
@@ -204,6 +224,8 @@ class Button extends Panel {
         const textLabel = new TextUI(pad, pad, message, fontSize);
         this.addChild(textLabel);
         this.setMessage(message);
+
+        this.clickColor = COLORS.BLACK;
     }
 
     /** @returns {TextUI} */
@@ -215,6 +237,42 @@ class Button extends Panel {
         this.setDimensions(fs * msg.length + 2*this.padding, fs + 2*this.padding);
 
         this.textLabel.setMessage(msg);
+    }
+
+    getRenderer(asUI) {
+        const rend = super.getRenderer(asUI);
+
+        const click = this.tintCheck();
+        const c0 = rend.material.color;
+        rend.setMaterialColor(Color.lerpColors(c0, COLORS.BLACK, 0.1*click));
+        return rend;
+    }
+
+    tintCheck() {
+        let level = 0;
+        if (this.isHoveredOver()) {
+            level++;
+            const mI = inputStuff.getMouseInfo();
+
+            if (mI.held[0]) level++;
+        }
+        return level;
+    }
+
+    clickCheck() {
+        const mI = inputStuff.getMouseInfo();
+        if (this.isHoveredOver() && mI.spontaneous[0]) this.action();
+    }
+
+    isHoveredOver() {
+        const mP = vec2.create(); vec2.divide(mP, inputStuff.getMousePos(), vec2.fromValues(cWidth, cHeight));
+
+        return (
+            mP[0] > this.pos[0] &&
+            mP[1] > this.pos[1] &&
+            mP[0] < this.pos[0] + this.dim[0] &&
+            mP[1] < this.pos[1] + this.dim[1]
+        );
     }
 
     setPadding(pad) { this.padding = pad; }

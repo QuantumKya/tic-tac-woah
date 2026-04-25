@@ -2,7 +2,7 @@ import { loadShaderFiles, initShader, shaderSet } from "./shaders.js";
 import { Polygon, Quadrilateral } from "./shapez.js";
 import { DIRECTIONS, unNoise } from "./math_stuff.js";
 import { Color, COLORS } from "./color.js";
-import { getCamMove } from "./input.js";
+import { inputStuff } from "./input.js";
 import Camera from "./camera.js";
 import { loadBasicTextures, loadTexture, TEXTURES } from "./textures.js";
 import { Geometry, Material, RenderObject } from "./geometry.js";
@@ -98,20 +98,28 @@ function makeShapes(gl) {
 
 
     const textShape = new TextUI(
-        0.125, 0.25,
+        0.05, 0.05,
         "Hello,TicTacWoah!",
-        0.4
+        0.05
     );
-    textShape.setColor(COLORS.CYAN);
     const panelShape = new Panel(
-        0, 0, 7, 1
+        0.05, 0.05, 0.9, 0.2
     );
-    panelShape.centerOn(vec2.fromValues(0, 1.5));
-    panelShape.setColor(COLORS.BROWN);
     panelShape.addChild(textShape);
+    panelShape.setColor(COLORS.BROWN);
     panelShape.open();
 
+    textShape.centerOn(panelShape.center);
+    textShape.setColor(COLORS.CYAN);
+
     shapes.paneltest = panelShape;
+
+    const buttonTest = new Button(0, 0, 0.4, 0.7, "Button", () => console.log('button pressed!!!'), 0.05);
+    buttonTest.centerOn(vec2.fromValues(0.25, 0.9));
+    buttonTest.textLabel.setColor(COLORS.BLUE);
+    buttonTest.setBorder(0.05, COLORS.BLACK);
+    buttonTest.open();
+    shapes.button = buttonTest;
 }
 
 
@@ -126,8 +134,6 @@ function draw(gl, programInfo) {
     
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     gl.clearDepth(1.0);
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 
@@ -136,7 +142,7 @@ function draw(gl, programInfo) {
 
     const camera = programInfo.camera;
 
-    const moveCommand = getCamMove();
+    const moveCommand = inputStuff.getCamMove();
 
     cameraTheta += moveCommand[0] * 0.01;
     cameraTheta %= (2 * Math.PI);
@@ -182,7 +188,9 @@ function draw(gl, programInfo) {
     renderers.xs.forEach(dr);
     renderers.os.forEach(dr);
     
-    dr(shapes.paneltest);
+    shapes.paneltest.draw(gl, programInfo, changeyStuff);
+    shapes.button.draw(gl, programInfo, changeyStuff);
+    shapes.button.clickCheck();
 
     requestAnimationFrame(() => draw(gl, programInfo));
 
@@ -197,12 +205,15 @@ function draw(gl, programInfo) {
             Math.random()*0.2
         );
     }
+
+    inputStuff.tick();
 }
 
 function main() {
     const canvas = document.querySelector('canvas');
     // Initialize the GL context
     const gl = canvas.getContext('webgl');
+    gl.viewport(0, 0, canvas.width, canvas.height);
 
     // Only continue if WebGL is available and working
     if (gl === null) {
@@ -229,6 +240,8 @@ function main() {
             modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
             uSampler: gl.getUniformLocation(shaderProgram, "u_texture"),
             uColor: gl.getUniformLocation(shaderProgram, "u_color"),
+
+            uiFlag: gl.getUniformLocation(shaderProgram, "uiFlag"),
         },
     }
 
@@ -250,6 +263,7 @@ function main() {
     // load the textures
     loadBasicTextures(gl);
 
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     TEXTURES.X = loadTexture(gl, 'x.png');
     TEXTURES.O = loadTexture(gl, 'o.png');
     TEXTURES.PH = loadTexture(gl, 'faceholder.png');

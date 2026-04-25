@@ -31,9 +31,11 @@ class Material {
 
 class RenderObject {
     /** @param {Geometry} geom @param {Material} material  */
-    constructor(geom, material) {
+    constructor(geom, material, isUI) {
         this.geometry = geom;
         this.material = material;
+
+        this.isUI = isUI;
     }
 
     /** @param {WebGLRenderingContext} gl */
@@ -44,7 +46,7 @@ class RenderObject {
     /** @param {WebGLRenderingContext} gl @param {import("./draw.js").ProgramInfo} programInfo @param {...*} args  */
     draw(gl, programInfo, ...args) {
         this.material.apply(gl, programInfo);
-        this.geometry.draw(gl, programInfo, ...args);
+        this.geometry.draw(gl, programInfo, this.isUI, ...args);
     }
 
     /** @param {Material} material */
@@ -125,8 +127,8 @@ class Geometry {
     }
 
     /** @param {WebGLRenderingContext} gl @param {import("./draw.js").ProgramInfo} programInfo @param {...*} args  */
-    draw(gl, programInfo, ...args) {
-        drawScene(gl, programInfo, this.buffers, ...args);
+    draw(gl, programInfo, isUI, ...args) {
+        drawScene(gl, programInfo, this.buffers, isUI, ...args);
     }
 
     /** @param {...Geometry} geoms  */
